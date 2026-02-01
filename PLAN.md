@@ -26,6 +26,7 @@ make check
 - Repo scaffold + CLI MVP (init/create/list/pubkey/delete/doctor/ssh-config).
 - Safety + robustness: `delete` confirmation prompt with `--yes`, and `doctor` reports FIDO2 key type support when detectable.
 - Compatibility: pin Click to a Typer-compatible version and add a CLI `--help` smoke test.
+- Automation: `--json` output mode for `doctor`, `list`, and `info`.
 
 ## Next to ship
 - Polish: structured output modes (`--json`) for automation (`list`, `doctor`, `info`).

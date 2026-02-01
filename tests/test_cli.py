@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
+
 from typer.testing import CliRunner
 
 import secretive_x.cli as cli
+from secretive_x.config import Config
 from secretive_x.store import KeyRecord
 
 runner = CliRunner()
@@ -52,3 +55,37 @@ def test_help_does_not_crash() -> None:
     result = runner.invoke(cli.app, ["--help"])
     assert result.exit_code == 0
     assert "create" in result.stdout
+
+
+def test_list_json(monkeypatch) -> None:
+    monkeypatch.setattr(cli, "list_keys", lambda: [_record(), _record(resident=True)])
+    result = runner.invoke(cli.app, ["list", "--json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["keys"][0]["name"] == "demo"
+    assert "private_key_path" in payload["keys"][0]
+
+
+def test_doctor_json(monkeypatch) -> None:
+    monkeypatch.setattr(cli, "check_ssh_keygen", lambda: True)
+    monkeypatch.setattr(cli, "get_ssh_version", lambda: "OpenSSH_9.9")
+    monkeypatch.setattr(cli, "ssh_supports_key_type", lambda _: True)
+    result = runner.invoke(cli.app, ["doctor", "--json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["ssh_keygen"] is True
+    assert payload["ssh_version"] == "OpenSSH_9.9"
+    assert payload["fido2_key_type_support"] is True
+
+
+def test_info_json(monkeypatch, tmp_path) -> None:
+    cfg = Config(
+        config_path=tmp_path / "config.json",
+        key_dir=tmp_path / "keys",
+        manifest_path=tmp_path / "keys.json",
+    )
+    monkeypatch.setattr(cli, "load_config", lambda: cfg)
+    result = runner.invoke(cli.app, ["info", "--json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["config_path"].endswith("config.json")

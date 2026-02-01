@@ -4,6 +4,7 @@
 - Safer deletes: `secretive-x delete <name>` now prompts for confirmation by default; use `--yes/-y` for non-interactive scripts.
 - Better diagnostics: `secretive-x doctor` now reports whether the installed OpenSSH advertises FIDO2 key type support (when detectable via `ssh -Q key`).
 - Compatibility fix: pin Click to a Typer-compatible version; add a smoke test to ensure `--help` doesn’t crash.
+- Automation: `doctor`, `list`, and `info` support `--json` for machine-readable output.
 
 ## PR
 - https://github.com/sarveshkapre/secretive-x/pull/1

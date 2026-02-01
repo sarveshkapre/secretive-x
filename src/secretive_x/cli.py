@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import getpass
+import json
 from enum import Enum
 
 import typer
@@ -38,6 +39,11 @@ NO_PASSPHRASE_OPTION = typer.Option(False, "--no-passphrase")
 ROUNDS_OPTION = typer.Option(64, "--rounds", help="KDF rounds for software keys.")
 HOST_OPTION = typer.Option(..., "--host")
 YES_OPTION = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt.")
+JSON_OPTION = typer.Option(False, "--json", help="Output machine-readable JSON.")
+
+
+def _print_json(payload: object) -> None:
+    typer.echo(json.dumps(payload, indent=2, sort_keys=True))
 
 
 @app.command()
@@ -50,17 +56,26 @@ def init() -> None:
 
 
 @app.command()
-def doctor() -> None:
+def doctor(json_output: bool = JSON_OPTION) -> None:
     """Check local prerequisites."""
     has_keygen = check_ssh_keygen()
     version = get_ssh_version()
-    console.print(f"ssh-keygen: {'OK' if has_keygen else 'MISSING'}")
-    console.print(f"ssh version: {version or 'unknown'}")
     fido2_support = ssh_supports_key_type("sk-ssh-ed25519@openssh.com")
-    if fido2_support is None:
-        console.print("fido2 support: unknown")
+    if json_output:
+        _print_json(
+            {
+                "ssh_keygen": has_keygen,
+                "ssh_version": version,
+                "fido2_key_type_support": fido2_support,
+            }
+        )
     else:
-        console.print(f"fido2 support: {'OK' if fido2_support else 'MISSING'}")
+        console.print(f"ssh-keygen: {'OK' if has_keygen else 'MISSING'}")
+        console.print(f"ssh version: {version or 'unknown'}")
+        if fido2_support is None:
+            console.print("fido2 support: unknown")
+        else:
+            console.print(f"fido2 support: {'OK' if fido2_support else 'MISSING'}")
     if not has_keygen:
         raise typer.Exit(code=1)
 
@@ -117,9 +132,25 @@ def create(
 
 
 @app.command(name="list")
-def list_cmd() -> None:
+def list_cmd(json_output: bool = JSON_OPTION) -> None:
     """List known keys."""
     records = list_keys()
+    if json_output:
+        def _as_dict(record):
+            return {
+                "application": record.application,
+                "comment": record.comment,
+                "created_at": record.created_at,
+                "name": record.name,
+                "private_key_path": record.private_key_path,
+                "provider": record.provider,
+                "public_key_path": record.public_key_path,
+                "resident": record.resident,
+            }
+
+        _print_json({"keys": [_as_dict(r) for r in sorted(records, key=lambda r: r.name)]})
+        return
+
     if not records:
         console.print("No keys found.")
         return
@@ -192,9 +223,18 @@ def ssh_config(name: str, host: str = HOST_OPTION) -> None:
 
 
 @app.command()
-def info() -> None:
+def info(json_output: bool = JSON_OPTION) -> None:
     """Show current config paths."""
     config = load_config()
+    if json_output:
+        _print_json(
+            {
+                "config_path": str(config.config_path),
+                "key_dir": str(config.key_dir),
+                "manifest_path": str(config.manifest_path),
+            }
+        )
+        return
     console.print(f"Config: {config.config_path}")
     console.print(f"Keys:   {config.key_dir}")
     console.print(f"Store:  {config.manifest_path}")
