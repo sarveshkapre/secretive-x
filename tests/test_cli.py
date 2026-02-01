@@ -224,6 +224,13 @@ def test_info_json(monkeypatch, tmp_path) -> None:
     assert payload["config_path"].endswith("config.json")
 
 
+def test_version_json() -> None:
+    result = runner.invoke(cli.app, ["version", "--json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert "version" in payload
+
+
 def test_info_json_invalid_config(monkeypatch) -> None:
     monkeypatch.setattr(
         cli, "load_config", lambda: (_ for _ in ()).throw(ConfigError("bad config"))

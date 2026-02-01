@@ -30,6 +30,7 @@ make check
 - Reliability: graceful errors for malformed config/manifest, and `doctor` now checks config/manifest/key-dir health.
 - UX/safety: `init` no longer overwrites an existing config unless `--force` is passed (also supports `--json`).
 - Automation: `--json` output mode for `create`, `pubkey`, `ssh-config`, and `delete` (delete requires `--yes` when using `--json`).
+- Automation: `version` command (supports `--json`).
 
 ## Next to ship
 - Polish: structured output modes (`--json`) for automation (`list`, `doctor`, `info`).

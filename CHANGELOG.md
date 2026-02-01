@@ -6,6 +6,7 @@
 - Add `--json` output mode to most commands for automation (`init`, `doctor`, `list`, `info`, `create`, `pubkey`, `ssh-config`, `delete`).
 - Add actionable errors for malformed config/manifest files (instead of stack traces).
 - Make `init` idempotent (no config overwrite by default) and add `--force` to overwrite config when needed.
+- Add `version` command (with `--json`) for automation and scripts.
 - Pin Click to a Typer-compatible version and add a `--help` smoke test.
 
 ## 0.1.0

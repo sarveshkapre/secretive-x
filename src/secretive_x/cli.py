@@ -9,6 +9,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from . import __version__
 from .config import ConfigError, default_config, init_config, load_config
 from .core import (
     KeyExistsError,
@@ -387,6 +388,15 @@ def info(json_output: bool = JSON_OPTION) -> None:
     console.print(f"Config: {config.config_path}")
     console.print(f"Keys:   {config.key_dir}")
     console.print(f"Store:  {config.manifest_path}")
+
+
+@app.command()
+def version(json_output: bool = JSON_OPTION) -> None:
+    """Show the CLI version."""
+    if json_output:
+        _print_json({"version": __version__})
+        return
+    console.print(__version__)
 
 
 if __name__ == "__main__":
