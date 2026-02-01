@@ -28,6 +28,7 @@ make check
 - Compatibility: pin Click to a Typer-compatible version and add a CLI `--help` smoke test.
 - Automation: `--json` output mode for `doctor`, `list`, and `info`.
 - Reliability: graceful errors for malformed config/manifest, and `doctor` now checks config/manifest/key-dir health.
+- UX/safety: `init` no longer overwrites an existing config unless `--force` is passed (also supports `--json`).
 
 ## Next to ship
 - Polish: structured output modes (`--json`) for automation (`list`, `doctor`, `info`).

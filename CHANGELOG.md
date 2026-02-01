@@ -5,6 +5,7 @@
 - Improve `doctor` output by reporting FIDO2 key type support and local config/manifest health when detectable.
 - Add `--json` output mode to `doctor`, `list`, and `info` for automation.
 - Add actionable errors for malformed config/manifest files (instead of stack traces).
+- Make `init` idempotent (no config overwrite by default) and add `--force` to overwrite config when needed.
 - Pin Click to a Typer-compatible version and add a `--help` smoke test.
 
 ## 0.1.0

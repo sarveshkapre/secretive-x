@@ -56,9 +56,15 @@ def save_config(config: Config) -> None:
     )
 
 
-def init_config() -> Config:
-    config = default_config()
+def init_config(*, force: bool = False) -> Config:
+    cfg_default = default_config()
+
+    if cfg_default.config_path.exists() and not force:
+        config = load_config()
+    else:
+        config = cfg_default
+        save_config(config)
+
     config.key_dir.mkdir(parents=True, exist_ok=True)
     config.manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    save_config(config)
     return config

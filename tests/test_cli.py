@@ -58,6 +58,72 @@ def test_help_does_not_crash() -> None:
     assert "create" in result.stdout
 
 
+def test_init_json_status_created(monkeypatch, tmp_path) -> None:
+    cfg = Config(
+        config_path=tmp_path / "config.json",
+        key_dir=tmp_path / "keys",
+        manifest_path=tmp_path / "keys.json",
+    )
+    monkeypatch.setattr(cli, "default_config", lambda: cfg)
+    monkeypatch.setattr(cli, "init_config", lambda **kwargs: cfg)
+
+    result = runner.invoke(cli.app, ["init", "--json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "created"
+
+
+def test_init_json_status_existing(monkeypatch, tmp_path) -> None:
+    cfg = Config(
+        config_path=tmp_path / "config.json",
+        key_dir=tmp_path / "keys",
+        manifest_path=tmp_path / "keys.json",
+    )
+    cfg.config_path.write_text("{}")
+    monkeypatch.setattr(cli, "default_config", lambda: cfg)
+    monkeypatch.setattr(cli, "init_config", lambda **kwargs: cfg)
+
+    result = runner.invoke(cli.app, ["init", "--json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "existing"
+
+
+def test_init_json_status_overwritten(monkeypatch, tmp_path) -> None:
+    cfg = Config(
+        config_path=tmp_path / "config.json",
+        key_dir=tmp_path / "keys",
+        manifest_path=tmp_path / "keys.json",
+    )
+    cfg.config_path.write_text("{}")
+    monkeypatch.setattr(cli, "default_config", lambda: cfg)
+    monkeypatch.setattr(cli, "init_config", lambda **kwargs: cfg)
+
+    result = runner.invoke(cli.app, ["init", "--json", "--force"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "overwritten"
+
+
+def test_init_json_invalid_config(monkeypatch, tmp_path) -> None:
+    cfg = Config(
+        config_path=tmp_path / "config.json",
+        key_dir=tmp_path / "keys",
+        manifest_path=tmp_path / "keys.json",
+    )
+    monkeypatch.setattr(cli, "default_config", lambda: cfg)
+
+    def _boom(**kwargs):
+        raise ConfigError("bad config")
+
+    monkeypatch.setattr(cli, "init_config", _boom)
+
+    result = runner.invoke(cli.app, ["init", "--json"])
+    assert result.exit_code == 2
+    payload = json.loads(result.stdout)
+    assert "Tip:" in payload["error"]
+
+
 def test_list_json(monkeypatch) -> None:
     monkeypatch.setattr(cli, "list_keys", lambda: [_record(), _record(resident=True)])
     result = runner.invoke(cli.app, ["list", "--json"])

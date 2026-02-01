@@ -56,9 +56,40 @@ def _fail(message: str, *, json_output: bool = False, code: int = 1) -> None:
 
 
 @app.command()
-def init() -> None:
+def init(
+    force: bool = typer.Option(False, "--force", help="Overwrite existing config."),
+    json_output: bool = JSON_OPTION,
+) -> None:
     """Initialize config and directories."""
-    config = init_config()
+    config_path = default_config().config_path
+    existed = config_path.exists()
+    try:
+        config = init_config(force=force)
+    except ConfigError as exc:
+        _fail(
+            f"{exc}\nTip: run `secretive-x init --force` to overwrite the config.",
+            json_output=json_output,
+            code=2,
+        )
+
+    if existed and force:
+        status = "overwritten"
+    elif existed:
+        status = "existing"
+    else:
+        status = "created"
+    if json_output:
+        _print_json(
+            {
+                "status": status,
+                "config_path": str(config.config_path),
+                "key_dir": str(config.key_dir),
+                "manifest_path": str(config.manifest_path),
+            }
+        )
+        return
+
+    console.print(f"Config status: {status}")
     console.print(f"Config: {config.config_path}")
     console.print(f"Keys:   {config.key_dir}")
     console.print(f"Store:  {config.manifest_path}")
