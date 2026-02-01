@@ -8,7 +8,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from .config import init_config, load_config
+from .config import ConfigError, default_config, init_config, load_config
 from .core import (
     KeyExistsError,
     create_key,
@@ -19,6 +19,7 @@ from .core import (
     ssh_config_snippet,
 )
 from .ssh import SshError, check_ssh_keygen, get_ssh_version, ssh_supports_key_type
+from .store import ManifestError, load_manifest
 from .utils import validate_name
 
 app = typer.Typer(no_args_is_help=True)
@@ -46,6 +47,14 @@ def _print_json(payload: object) -> None:
     typer.echo(json.dumps(payload, indent=2, sort_keys=True))
 
 
+def _fail(message: str, *, json_output: bool = False, code: int = 1) -> None:
+    if json_output:
+        _print_json({"error": message})
+    else:
+        console.print(message)
+    raise typer.Exit(code=code)
+
+
 @app.command()
 def init() -> None:
     """Initialize config and directories."""
@@ -61,12 +70,49 @@ def doctor(json_output: bool = JSON_OPTION) -> None:
     has_keygen = check_ssh_keygen()
     version = get_ssh_version()
     fido2_support = ssh_supports_key_type("sk-ssh-ed25519@openssh.com")
+
+    cfg_default = default_config()
+    config_exists = cfg_default.config_path.exists()
+    config_error: str | None = None
+    try:
+        config = load_config()
+    except ConfigError as exc:
+        config = cfg_default
+        config_error = str(exc)
+
+    key_dir_exists = config.key_dir.exists()
+    key_dir_is_dir = config.key_dir.is_dir() if key_dir_exists else None
+
+    manifest_exists = config.manifest_path.exists()
+    manifest_error: str | None = None
+    try:
+        load_manifest(config.manifest_path)
+    except ManifestError as exc:
+        manifest_error = str(exc)
+
     if json_output:
         _print_json(
             {
                 "ssh_keygen": has_keygen,
                 "ssh_version": version,
                 "fido2_key_type_support": fido2_support,
+                "config": {
+                    "exists": config_exists,
+                    "path": str(cfg_default.config_path),
+                    "valid": config_error is None,
+                    "error": config_error,
+                },
+                "key_dir": {
+                    "path": str(config.key_dir),
+                    "exists": key_dir_exists,
+                    "is_dir": key_dir_is_dir,
+                },
+                "manifest": {
+                    "exists": manifest_exists,
+                    "path": str(config.manifest_path),
+                    "valid": manifest_error is None,
+                    "error": manifest_error,
+                },
             }
         )
     else:
@@ -76,7 +122,23 @@ def doctor(json_output: bool = JSON_OPTION) -> None:
             console.print("fido2 support: unknown")
         else:
             console.print(f"fido2 support: {'OK' if fido2_support else 'MISSING'}")
+        if config_error is None:
+            console.print(f"config: OK ({cfg_default.config_path})")
+        else:
+            console.print(f"config: INVALID ({cfg_default.config_path})")
+            console.print(config_error)
+        if key_dir_exists and key_dir_is_dir:
+            console.print(f"key dir: OK ({config.key_dir})")
+        else:
+            console.print(f"key dir: MISSING ({config.key_dir})")
+        if manifest_error is None:
+            console.print(f"manifest: OK ({config.manifest_path})")
+        else:
+            console.print(f"manifest: INVALID ({config.manifest_path})")
+            console.print(manifest_error)
     if not has_keygen:
+        raise typer.Exit(code=1)
+    if config_error is not None or manifest_error is not None:
         raise typer.Exit(code=1)
 
 
@@ -124,6 +186,9 @@ def create(
     except KeyExistsError as exc:
         console.print(str(exc))
         raise typer.Exit(code=2) from None
+    except (ConfigError, ManifestError) as exc:
+        console.print(str(exc))
+        raise typer.Exit(code=2) from None
     except SshError as exc:
         console.print(str(exc))
         raise typer.Exit(code=1) from None
@@ -134,7 +199,10 @@ def create(
 @app.command(name="list")
 def list_cmd(json_output: bool = JSON_OPTION) -> None:
     """List known keys."""
-    records = list_keys()
+    try:
+        records = list_keys()
+    except (ConfigError, ManifestError) as exc:
+        _fail(str(exc), json_output=json_output, code=2)
     if json_output:
         def _as_dict(record):
             return {
@@ -177,7 +245,10 @@ def list_cmd(json_output: bool = JSON_OPTION) -> None:
 @app.command()
 def pubkey(name: str) -> None:
     """Print the public key for a named key."""
-    record = get_key(name)
+    try:
+        record = get_key(name)
+    except (ConfigError, ManifestError) as exc:
+        _fail(str(exc), code=2)
     if record is None:
         console.print("Key not found.")
         raise typer.Exit(code=2)
@@ -187,7 +258,10 @@ def pubkey(name: str) -> None:
 @app.command()
 def delete(name: str, yes: bool = YES_OPTION) -> None:
     """Delete local key files and remove from manifest."""
-    record = get_key(name)
+    try:
+        record = get_key(name)
+    except (ConfigError, ManifestError) as exc:
+        _fail(str(exc), code=2)
     if record is None:
         console.print("Key not found.")
         raise typer.Exit(code=2)
@@ -201,7 +275,10 @@ def delete(name: str, yes: bool = YES_OPTION) -> None:
             console.print("Canceled.")
             raise typer.Exit(code=0)
 
-    deleted = delete_key(name)
+    try:
+        deleted = delete_key(name)
+    except (ConfigError, ManifestError) as exc:
+        _fail(str(exc), code=2)
     if deleted is None:
         # Manifest changed between confirmation and deletion.
         console.print("Key not found.")
@@ -215,7 +292,10 @@ def delete(name: str, yes: bool = YES_OPTION) -> None:
 @app.command("ssh-config")
 def ssh_config(name: str, host: str = HOST_OPTION) -> None:
     """Emit an SSH config snippet for a key."""
-    record = get_key(name)
+    try:
+        record = get_key(name)
+    except (ConfigError, ManifestError) as exc:
+        _fail(str(exc), code=2)
     if record is None:
         console.print("Key not found.")
         raise typer.Exit(code=2)
@@ -225,7 +305,10 @@ def ssh_config(name: str, host: str = HOST_OPTION) -> None:
 @app.command()
 def info(json_output: bool = JSON_OPTION) -> None:
     """Show current config paths."""
-    config = load_config()
+    try:
+        config = load_config()
+    except ConfigError as exc:
+        _fail(str(exc), json_output=json_output, code=2)
     if json_output:
         _print_json(
             {

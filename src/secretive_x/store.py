@@ -8,6 +8,10 @@ from pathlib import Path
 from .utils import atomic_write_json
 
 
+class ManifestError(RuntimeError):
+    pass
+
+
 @dataclass
 class KeyRecord:
     name: str
@@ -44,9 +48,15 @@ class KeyRecord:
 def load_manifest(path: Path) -> dict[str, KeyRecord]:
     if not path.exists():
         return {}
-    data = json.loads(path.read_text())
+    try:
+        data = json.loads(path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ManifestError(f"Invalid JSON in manifest file: {path}") from exc
     keys = data.get("keys", {})
-    return {name: KeyRecord(**payload) for name, payload in keys.items()}
+    try:
+        return {name: KeyRecord(**payload) for name, payload in keys.items()}
+    except TypeError as exc:
+        raise ManifestError(f"Invalid manifest schema: {path}") from exc
 
 
 def save_manifest(path: Path, records: dict[str, KeyRecord]) -> None:

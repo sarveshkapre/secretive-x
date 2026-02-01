@@ -5,6 +5,7 @@
 - Better diagnostics: `secretive-x doctor` now reports whether the installed OpenSSH advertises FIDO2 key type support (when detectable via `ssh -Q key`).
 - Compatibility fix: pin Click to a Typer-compatible version; add a smoke test to ensure `--help` doesn’t crash.
 - Automation: `doctor`, `list`, and `info` support `--json` for machine-readable output.
+- Reliability: malformed config/manifest now produce actionable errors (and `doctor` reports config/manifest/key dir health).
 
 ## PR
 - https://github.com/sarveshkapre/secretive-x/pull/1

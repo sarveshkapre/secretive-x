@@ -27,6 +27,7 @@ make check
 - Safety + robustness: `delete` confirmation prompt with `--yes`, and `doctor` reports FIDO2 key type support when detectable.
 - Compatibility: pin Click to a Typer-compatible version and add a CLI `--help` smoke test.
 - Automation: `--json` output mode for `doctor`, `list`, and `info`.
+- Reliability: graceful errors for malformed config/manifest, and `doctor` now checks config/manifest/key-dir health.
 
 ## Next to ship
 - Polish: structured output modes (`--json`) for automation (`list`, `doctor`, `info`).

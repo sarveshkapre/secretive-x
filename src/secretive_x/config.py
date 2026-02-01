@@ -11,6 +11,10 @@ from .utils import atomic_write_json
 APP_NAME = "secretive-x"
 
 
+class ConfigError(RuntimeError):
+    pass
+
+
 @dataclass(frozen=True)
 class Config:
     config_path: Path
@@ -30,7 +34,10 @@ def load_config() -> Config:
     cfg = default_config()
     if not cfg.config_path.exists():
         return cfg
-    data = json.loads(cfg.config_path.read_text())
+    try:
+        data = json.loads(cfg.config_path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ConfigError(f"Invalid JSON in config file: {cfg.config_path}") from exc
     return Config(
         config_path=cfg.config_path,
         key_dir=Path(data.get("key_dir", cfg.key_dir)),

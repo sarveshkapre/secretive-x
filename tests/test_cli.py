@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from typer.testing import CliRunner
 
 import secretive_x.cli as cli
-from secretive_x.config import Config
-from secretive_x.store import KeyRecord
+from secretive_x.config import Config, ConfigError
+from secretive_x.store import KeyRecord, ManifestError
 
 runner = CliRunner()
 
@@ -70,6 +71,25 @@ def test_doctor_json(monkeypatch) -> None:
     monkeypatch.setattr(cli, "check_ssh_keygen", lambda: True)
     monkeypatch.setattr(cli, "get_ssh_version", lambda: "OpenSSH_9.9")
     monkeypatch.setattr(cli, "ssh_supports_key_type", lambda _: True)
+    monkeypatch.setattr(
+        cli,
+        "default_config",
+        lambda: Config(
+            config_path=Path("/tmp/config.json"),
+            key_dir=Path("/tmp/keys"),
+            manifest_path=Path("/tmp/keys.json"),
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "load_config",
+        lambda: Config(
+            config_path=Path("/tmp/config.json"),
+            key_dir=Path("/tmp/keys"),
+            manifest_path=Path("/tmp/keys.json"),
+        ),
+    )
+    monkeypatch.setattr(cli, "load_manifest", lambda _: {})
     result = runner.invoke(cli.app, ["doctor", "--json"])
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
@@ -89,3 +109,23 @@ def test_info_json(monkeypatch, tmp_path) -> None:
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
     assert payload["config_path"].endswith("config.json")
+
+
+def test_info_json_invalid_config(monkeypatch) -> None:
+    monkeypatch.setattr(
+        cli, "load_config", lambda: (_ for _ in ()).throw(ConfigError("bad config"))
+    )
+    result = runner.invoke(cli.app, ["info", "--json"])
+    assert result.exit_code == 2
+    payload = json.loads(result.stdout)
+    assert "error" in payload
+
+
+def test_list_json_invalid_manifest(monkeypatch) -> None:
+    monkeypatch.setattr(
+        cli, "list_keys", lambda: (_ for _ in ()).throw(ManifestError("bad manifest"))
+    )
+    result = runner.invoke(cli.app, ["list", "--json"])
+    assert result.exit_code == 2
+    payload = json.loads(result.stdout)
+    assert "error" in payload
