@@ -23,6 +23,25 @@ def get_ssh_version() -> str | None:
     return (proc.stderr or proc.stdout).strip() or None
 
 
+def ssh_query_key_types() -> list[str] | None:
+    if shutil.which("ssh") is None:
+        return None
+    # Fixed command, no user input.
+    proc = subprocess.run(  # nosec
+        ["ssh", "-Q", "key"], capture_output=True, text=True, check=False
+    )
+    if proc.returncode != 0:
+        return None
+    return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+
+
+def ssh_supports_key_type(key_type: str) -> bool | None:
+    key_types = ssh_query_key_types()
+    if key_types is None:
+        return None
+    return key_type in set(key_types)
+
+
 def build_ssh_keygen_cmd(
     provider: str,
     key_path: Path,

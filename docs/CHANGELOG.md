@@ -1,4 +1,3 @@
 # CHANGELOG
 
-## Unreleased
-- Initial scaffolding and CLI MVP.
+This document moved to the repo root: `CHANGELOG.md`.

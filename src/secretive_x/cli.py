@@ -17,7 +17,7 @@ from .core import (
     read_public_key,
     ssh_config_snippet,
 )
-from .ssh import SshError, check_ssh_keygen, get_ssh_version
+from .ssh import SshError, check_ssh_keygen, get_ssh_version, ssh_supports_key_type
 from .utils import validate_name
 
 app = typer.Typer(no_args_is_help=True)
@@ -37,6 +37,7 @@ PASSPHRASE_OPTION = typer.Option(None, "--passphrase")
 NO_PASSPHRASE_OPTION = typer.Option(False, "--no-passphrase")
 ROUNDS_OPTION = typer.Option(64, "--rounds", help="KDF rounds for software keys.")
 HOST_OPTION = typer.Option(..., "--host")
+YES_OPTION = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt.")
 
 
 @app.command()
@@ -55,6 +56,11 @@ def doctor() -> None:
     version = get_ssh_version()
     console.print(f"ssh-keygen: {'OK' if has_keygen else 'MISSING'}")
     console.print(f"ssh version: {version or 'unknown'}")
+    fido2_support = ssh_supports_key_type("sk-ssh-ed25519@openssh.com")
+    if fido2_support is None:
+        console.print("fido2 support: unknown")
+    else:
+        console.print(f"fido2 support: {'OK' if fido2_support else 'MISSING'}")
     if not has_keygen:
         raise typer.Exit(code=1)
 
@@ -148,13 +154,29 @@ def pubkey(name: str) -> None:
 
 
 @app.command()
-def delete(name: str) -> None:
+def delete(name: str, yes: bool = YES_OPTION) -> None:
     """Delete local key files and remove from manifest."""
-    record = delete_key(name)
+    record = get_key(name)
     if record is None:
         console.print("Key not found.")
         raise typer.Exit(code=2)
-    if record.provider == "fido2" and record.resident:
+
+    if not yes:
+        confirmed = typer.confirm(
+            f"Delete key '{name}'? This removes local key files and the manifest entry.",
+            default=False,
+        )
+        if not confirmed:
+            console.print("Canceled.")
+            raise typer.Exit(code=0)
+
+    deleted = delete_key(name)
+    if deleted is None:
+        # Manifest changed between confirmation and deletion.
+        console.print("Key not found.")
+        raise typer.Exit(code=2)
+
+    if deleted.provider == "fido2" and deleted.resident:
         console.print("Local handle removed. Resident key may remain on device.")
     console.print(f"Deleted {name}")
 
