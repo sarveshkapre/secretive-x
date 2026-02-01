@@ -1,0 +1,59 @@
+from __future__ import annotations
+
+import json
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
+from pathlib import Path
+
+from .utils import atomic_write_json
+
+
+@dataclass
+class KeyRecord:
+    name: str
+    provider: str
+    created_at: str
+    public_key_path: str
+    private_key_path: str
+    comment: str
+    resident: bool
+    application: str | None
+
+    @staticmethod
+    def new(
+        name: str,
+        provider: str,
+        public_key_path: Path,
+        private_key_path: Path,
+        comment: str,
+        resident: bool,
+        application: str | None,
+    ) -> KeyRecord:
+        return KeyRecord(
+            name=name,
+            provider=provider,
+            created_at=datetime.now(UTC).isoformat(),
+            public_key_path=str(public_key_path),
+            private_key_path=str(private_key_path),
+            comment=comment,
+            resident=resident,
+            application=application,
+        )
+
+
+def load_manifest(path: Path) -> dict[str, KeyRecord]:
+    if not path.exists():
+        return {}
+    data = json.loads(path.read_text())
+    keys = data.get("keys", {})
+    return {name: KeyRecord(**payload) for name, payload in keys.items()}
+
+
+def save_manifest(path: Path, records: dict[str, KeyRecord]) -> None:
+    atomic_write_json(
+        path,
+        {
+            "version": 1,
+            "keys": {name: asdict(record) for name, record in records.items()},
+        },
+    )

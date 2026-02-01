@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "secretive-x"
+version = "0.1.0"
+description = "Hardware-backed, non-exportable SSH keys with a simple CLI"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Sarvesh Kapre" }]
+dependencies = [
+  "platformdirs==4.2.2",
+  "rich==13.7.1",
+  "typer==0.12.3",
+]
+
+[project.scripts]
+secretive-x = "secretive_x.cli:app"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["secretive_x"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_ignores = true
+warn_return_any = false
+strict = false
+
+[tool.pytest.ini_options]
+addopts = "-q"
