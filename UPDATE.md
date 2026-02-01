@@ -7,6 +7,7 @@
 - Automation: `doctor`, `list`, and `info` support `--json` for machine-readable output.
 - Reliability: malformed config/manifest now produce actionable errors (and `doctor` reports config/manifest/key dir health).
 - UX/safety: `init` is now idempotent and won’t overwrite an existing config unless `--force` is passed (and `init` supports `--json`).
+- Automation: `create`, `pubkey`, `ssh-config`, and `delete` now support `--json` too (and `delete --json` requires `--yes`).
 
 ## PR
 - https://github.com/sarveshkapre/secretive-x/pull/1

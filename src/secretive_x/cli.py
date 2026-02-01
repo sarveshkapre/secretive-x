@@ -3,6 +3,7 @@ from __future__ import annotations
 import getpass
 import json
 from enum import Enum
+from typing import NoReturn
 
 import typer
 from rich.console import Console
@@ -19,7 +20,7 @@ from .core import (
     ssh_config_snippet,
 )
 from .ssh import SshError, check_ssh_keygen, get_ssh_version, ssh_supports_key_type
-from .store import ManifestError, load_manifest
+from .store import KeyRecord, ManifestError, load_manifest
 from .utils import validate_name
 
 app = typer.Typer(no_args_is_help=True)
@@ -47,7 +48,20 @@ def _print_json(payload: object) -> None:
     typer.echo(json.dumps(payload, indent=2, sort_keys=True))
 
 
-def _fail(message: str, *, json_output: bool = False, code: int = 1) -> None:
+def _record_to_json(record: KeyRecord) -> dict[str, object]:
+    return {
+        "application": record.application,
+        "comment": record.comment,
+        "created_at": record.created_at,
+        "name": record.name,
+        "private_key_path": record.private_key_path,
+        "provider": record.provider,
+        "public_key_path": record.public_key_path,
+        "resident": record.resident,
+    }
+
+
+def _fail(message: str, *, json_output: bool = False, code: int = 1) -> NoReturn:
     if json_output:
         _print_json({"error": message})
     else:
@@ -183,18 +197,21 @@ def create(
     passphrase: str | None = PASSPHRASE_OPTION,
     no_passphrase: bool = NO_PASSPHRASE_OPTION,
     rounds: int = ROUNDS_OPTION,
+    json_output: bool = JSON_OPTION,
 ) -> None:
     """Create a new key using the selected provider."""
     try:
         validate_name(name)
     except ValueError as exc:
-        console.print(str(exc))
-        raise typer.Exit(code=2) from None
+        _fail(str(exc), json_output=json_output, code=2)
 
     if provider == Provider.software:
         if passphrase and no_passphrase:
-            console.print("Use either --passphrase or --no-passphrase, not both.")
-            raise typer.Exit(code=2)
+            _fail(
+                "Use either --passphrase or --no-passphrase, not both.",
+                json_output=json_output,
+                code=2,
+            )
         if passphrase is None and not no_passphrase:
             passphrase = getpass.getpass("Passphrase: ")
         if passphrase is None:
@@ -215,15 +232,15 @@ def create(
             rounds=rounds,
         )
     except KeyExistsError as exc:
-        console.print(str(exc))
-        raise typer.Exit(code=2) from None
+        _fail(str(exc), json_output=json_output, code=2)
     except (ConfigError, ManifestError) as exc:
-        console.print(str(exc))
-        raise typer.Exit(code=2) from None
+        _fail(str(exc), json_output=json_output, code=2)
     except SshError as exc:
-        console.print(str(exc))
-        raise typer.Exit(code=1) from None
+        _fail(str(exc), json_output=json_output, code=1)
 
+    if json_output:
+        _print_json({"created": _record_to_json(record)})
+        return
     console.print(f"Created {record.name} ({record.provider})")
 
 
@@ -274,28 +291,37 @@ def list_cmd(json_output: bool = JSON_OPTION) -> None:
 
 
 @app.command()
-def pubkey(name: str) -> None:
+def pubkey(name: str, json_output: bool = JSON_OPTION) -> None:
     """Print the public key for a named key."""
     try:
         record = get_key(name)
     except (ConfigError, ManifestError) as exc:
-        _fail(str(exc), code=2)
+        _fail(str(exc), json_output=json_output, code=2)
     if record is None:
-        console.print("Key not found.")
-        raise typer.Exit(code=2)
-    console.print(read_public_key(record))
+        _fail("Key not found.", json_output=json_output, code=2)
+
+    key = read_public_key(record)
+    if json_output:
+        _print_json({"name": record.name, "public_key": key})
+        return
+    console.print(key)
 
 
 @app.command()
-def delete(name: str, yes: bool = YES_OPTION) -> None:
+def delete(name: str, yes: bool = YES_OPTION, json_output: bool = JSON_OPTION) -> None:
     """Delete local key files and remove from manifest."""
+    if json_output and not yes:
+        _fail(
+            "Use --yes with --json for non-interactive delete.",
+            json_output=True,
+            code=2,
+        )
     try:
         record = get_key(name)
     except (ConfigError, ManifestError) as exc:
-        _fail(str(exc), code=2)
+        _fail(str(exc), json_output=json_output, code=2)
     if record is None:
-        console.print("Key not found.")
-        raise typer.Exit(code=2)
+        _fail("Key not found.", json_output=json_output, code=2)
 
     if not yes:
         confirmed = typer.confirm(
@@ -303,17 +329,23 @@ def delete(name: str, yes: bool = YES_OPTION) -> None:
             default=False,
         )
         if not confirmed:
-            console.print("Canceled.")
+            if json_output:
+                _print_json({"status": "canceled", "name": name})
+            else:
+                console.print("Canceled.")
             raise typer.Exit(code=0)
 
     try:
         deleted = delete_key(name)
     except (ConfigError, ManifestError) as exc:
-        _fail(str(exc), code=2)
+        _fail(str(exc), json_output=json_output, code=2)
     if deleted is None:
         # Manifest changed between confirmation and deletion.
-        console.print("Key not found.")
-        raise typer.Exit(code=2)
+        _fail("Key not found.", json_output=json_output, code=2)
+
+    if json_output:
+        _print_json({"deleted": _record_to_json(deleted)})
+        return
 
     if deleted.provider == "fido2" and deleted.resident:
         console.print("Local handle removed. Resident key may remain on device.")
@@ -321,16 +353,19 @@ def delete(name: str, yes: bool = YES_OPTION) -> None:
 
 
 @app.command("ssh-config")
-def ssh_config(name: str, host: str = HOST_OPTION) -> None:
+def ssh_config(name: str, host: str = HOST_OPTION, json_output: bool = JSON_OPTION) -> None:
     """Emit an SSH config snippet for a key."""
     try:
         record = get_key(name)
     except (ConfigError, ManifestError) as exc:
-        _fail(str(exc), code=2)
+        _fail(str(exc), json_output=json_output, code=2)
     if record is None:
-        console.print("Key not found.")
-        raise typer.Exit(code=2)
-    console.print(ssh_config_snippet(record, host))
+        _fail("Key not found.", json_output=json_output, code=2)
+    snippet = ssh_config_snippet(record, host)
+    if json_output:
+        _print_json({"name": record.name, "host": host, "snippet": snippet})
+        return
+    console.print(snippet)
 
 
 @app.command()

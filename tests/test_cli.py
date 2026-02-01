@@ -133,6 +133,53 @@ def test_list_json(monkeypatch) -> None:
     assert "private_key_path" in payload["keys"][0]
 
 
+def test_create_json(monkeypatch) -> None:
+    monkeypatch.setattr(cli, "validate_name", lambda n: n)
+    monkeypatch.setattr(cli, "create_key", lambda **kwargs: _record())
+    result = runner.invoke(cli.app, ["create", "--name", "demo", "--json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["created"]["name"] == "demo"
+
+
+def test_pubkey_json(monkeypatch) -> None:
+    monkeypatch.setattr(cli, "get_key", lambda name: _record())
+    monkeypatch.setattr(cli, "read_public_key", lambda record: "ssh-ed25519 AAAA demo")
+    result = runner.invoke(cli.app, ["pubkey", "demo", "--json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["name"] == "demo"
+    assert payload["public_key"].startswith("ssh-")
+
+
+def test_ssh_config_json(monkeypatch) -> None:
+    monkeypatch.setattr(cli, "get_key", lambda name: _record())
+    monkeypatch.setattr(cli, "ssh_config_snippet", lambda record, host: f"Host {host}\n")
+    result = runner.invoke(cli.app, ["ssh-config", "demo", "--host", "github.com", "--json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["name"] == "demo"
+    assert payload["host"] == "github.com"
+    assert payload["snippet"].startswith("Host github.com")
+
+
+def test_delete_json_requires_yes(monkeypatch) -> None:
+    monkeypatch.setattr(cli, "get_key", lambda name: _record())
+    result = runner.invoke(cli.app, ["delete", "demo", "--json"])
+    assert result.exit_code == 2
+    payload = json.loads(result.stdout)
+    assert "Use --yes" in payload["error"]
+
+
+def test_delete_json(monkeypatch) -> None:
+    monkeypatch.setattr(cli, "get_key", lambda name: _record())
+    monkeypatch.setattr(cli, "delete_key", lambda name: _record(resident=True))
+    result = runner.invoke(cli.app, ["delete", "demo", "--json", "--yes"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["deleted"]["name"] == "demo"
+
+
 def test_doctor_json(monkeypatch) -> None:
     monkeypatch.setattr(cli, "check_ssh_keygen", lambda: True)
     monkeypatch.setattr(cli, "get_ssh_version", lambda: "OpenSSH_9.9")
