@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from secretive_x.utils import atomic_write_json, validate_name
+from secretive_x.utils import atomic_write_json, atomic_write_text, validate_name
 
 
 def test_validate_name_ok() -> None:
@@ -25,3 +25,10 @@ def test_atomic_write_json(tmp_path: Path) -> None:
     atomic_write_json(target, {"hello": "world"})
     assert target.exists()
     assert target.read_text().strip().startswith("{")
+
+
+def test_atomic_write_text(tmp_path: Path) -> None:
+    target = tmp_path / "note.txt"
+    atomic_write_text(target, "hello\n")
+    assert target.exists()
+    assert target.read_text() == "hello\n"

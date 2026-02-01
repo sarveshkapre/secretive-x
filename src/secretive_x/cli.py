@@ -3,6 +3,7 @@ from __future__ import annotations
 import getpass
 import json
 from enum import Enum
+from pathlib import Path
 from typing import NoReturn
 
 import typer
@@ -22,7 +23,7 @@ from .core import (
 )
 from .ssh import SshError, check_ssh_keygen, get_ssh_version, ssh_supports_key_type
 from .store import KeyRecord, ManifestError, load_manifest
-from .utils import validate_name
+from .utils import atomic_write_text, validate_name
 
 app = typer.Typer(no_args_is_help=True)
 console = Console()
@@ -43,6 +44,8 @@ ROUNDS_OPTION = typer.Option(64, "--rounds", help="KDF rounds for software keys.
 HOST_OPTION = typer.Option(..., "--host")
 YES_OPTION = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt.")
 JSON_OPTION = typer.Option(False, "--json", help="Output machine-readable JSON.")
+OUTPUT_OPTION = typer.Option(None, "--output", help="Write output to file.")
+FORCE_OUTPUT_OPTION = typer.Option(False, "--force", help="Overwrite output file.")
 
 
 def _print_json(payload: object) -> None:
@@ -292,7 +295,12 @@ def list_cmd(json_output: bool = JSON_OPTION) -> None:
 
 
 @app.command()
-def pubkey(name: str, json_output: bool = JSON_OPTION) -> None:
+def pubkey(
+    name: str,
+    json_output: bool = JSON_OPTION,
+    output: Path | None = OUTPUT_OPTION,
+    force: bool = FORCE_OUTPUT_OPTION,
+) -> None:
     """Print the public key for a named key."""
     try:
         record = get_key(name)
@@ -302,6 +310,15 @@ def pubkey(name: str, json_output: bool = JSON_OPTION) -> None:
         _fail("Key not found.", json_output=json_output, code=2)
 
     key = read_public_key(record)
+    if output:
+        if output.exists() and not force:
+            _fail(f"Output file exists: {output}", json_output=json_output, code=2)
+        atomic_write_text(output, key + "\n")
+        if json_output:
+            _print_json({"name": record.name, "output_path": str(output)})
+        else:
+            console.print(f"Wrote {output}")
+        return
     if json_output:
         _print_json({"name": record.name, "public_key": key})
         return
@@ -354,7 +371,13 @@ def delete(name: str, yes: bool = YES_OPTION, json_output: bool = JSON_OPTION) -
 
 
 @app.command("ssh-config")
-def ssh_config(name: str, host: str = HOST_OPTION, json_output: bool = JSON_OPTION) -> None:
+def ssh_config(
+    name: str,
+    host: str = HOST_OPTION,
+    json_output: bool = JSON_OPTION,
+    output: Path | None = OUTPUT_OPTION,
+    force: bool = FORCE_OUTPUT_OPTION,
+) -> None:
     """Emit an SSH config snippet for a key."""
     try:
         record = get_key(name)
@@ -363,6 +386,15 @@ def ssh_config(name: str, host: str = HOST_OPTION, json_output: bool = JSON_OPTI
     if record is None:
         _fail("Key not found.", json_output=json_output, code=2)
     snippet = ssh_config_snippet(record, host)
+    if output:
+        if output.exists() and not force:
+            _fail(f"Output file exists: {output}", json_output=json_output, code=2)
+        atomic_write_text(output, snippet)
+        if json_output:
+            _print_json({"name": record.name, "host": host, "output_path": str(output)})
+        else:
+            console.print(f"Wrote {output}")
+        return
     if json_output:
         _print_json({"name": record.name, "host": host, "snippet": snippet})
         return

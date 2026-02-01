@@ -152,6 +152,25 @@ def test_pubkey_json(monkeypatch) -> None:
     assert payload["public_key"].startswith("ssh-")
 
 
+def test_pubkey_output_file(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(cli, "get_key", lambda name: _record())
+    monkeypatch.setattr(cli, "read_public_key", lambda record: "ssh-ed25519 AAAA demo")
+    target = tmp_path / "demo.pub"
+    result = runner.invoke(cli.app, ["pubkey", "demo", "--output", str(target)])
+    assert result.exit_code == 0
+    assert target.read_text().strip().startswith("ssh-ed25519")
+
+
+def test_pubkey_output_file_requires_force(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(cli, "get_key", lambda name: _record())
+    monkeypatch.setattr(cli, "read_public_key", lambda record: "ssh-ed25519 AAAA demo")
+    target = tmp_path / "demo.pub"
+    target.write_text("existing")
+    result = runner.invoke(cli.app, ["pubkey", "demo", "--output", str(target)])
+    assert result.exit_code == 2
+    assert "Output file exists" in result.stdout
+
+
 def test_ssh_config_json(monkeypatch) -> None:
     monkeypatch.setattr(cli, "get_key", lambda name: _record())
     monkeypatch.setattr(cli, "ssh_config_snippet", lambda record, host: f"Host {host}\n")
@@ -161,6 +180,17 @@ def test_ssh_config_json(monkeypatch) -> None:
     assert payload["name"] == "demo"
     assert payload["host"] == "github.com"
     assert payload["snippet"].startswith("Host github.com")
+
+
+def test_ssh_config_output_file(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(cli, "get_key", lambda name: _record())
+    monkeypatch.setattr(cli, "ssh_config_snippet", lambda record, host: f"Host {host}\n")
+    target = tmp_path / "ssh_config"
+    result = runner.invoke(
+        cli.app, ["ssh-config", "demo", "--host", "github.com", "--output", str(target)]
+    )
+    assert result.exit_code == 0
+    assert target.read_text().startswith("Host github.com")
 
 
 def test_delete_json_requires_yes(monkeypatch) -> None:
