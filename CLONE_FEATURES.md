@@ -8,11 +8,12 @@
 - GitHub Actions failure runs (`ci` workflow)
 
 ## Candidate Features To Do
-- [ ] P0 Implement Secure Enclave provider flow on macOS (create/list/delete parity with current providers).
-- [ ] P0 Implement TPM provider flow for Linux/Windows.
-- [ ] P1 Add resident key enumeration/removal commands for FIDO2 hardware keys.
-- [ ] P1 Add provider/name policy guardrails in config (allowlists + validation enforcement).
-- [ ] P2 Add CI Python version matrix (`3.11` + latest supported runtime) to catch runtime drift earlier.
+- [ ] P0 Add config policy guardrails (`allowed_providers`, `name_pattern`) and enforce them in `create`.
+- [ ] P0 Harden manifest-derived file paths so `pubkey`/`delete` refuse paths outside configured key dir.
+- [ ] P1 Add regression tests for policy guardrails and tampered-manifest path handling.
+- [ ] P1 Expand CI to a Python matrix (`3.11` + `3.13`) for earlier compatibility detection.
+- [ ] P1 Add a local non-destructive smoke verification path for core CLI commands.
+- [ ] P2 Add and maintain `PROJECT_MEMORY.md` + `INCIDENTS.md` with structured session evidence.
 
 ## Implemented
 - [x] 2026-02-09: Fixed Typer/Python 3.11 CI compatibility by removing optional union annotations from CLI option parameters and added command-help regression coverage.  

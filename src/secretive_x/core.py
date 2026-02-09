@@ -4,11 +4,26 @@ from pathlib import Path
 
 from .config import Config, load_config
 from .ssh import build_ssh_keygen_cmd, generate_key
-from .store import KeyRecord, load_manifest, save_manifest
+from .store import KeyRecord, ManifestError, load_manifest, save_manifest
 
 
 class KeyExistsError(RuntimeError):
     pass
+
+
+def _manifest_path_within_key_dir(path_value: str, *, key_dir: Path, field_name: str) -> Path:
+    key_dir_resolved = key_dir.expanduser().resolve(strict=False)
+    raw_path = Path(path_value).expanduser()
+    candidate = raw_path if raw_path.is_absolute() else key_dir_resolved / raw_path
+    resolved = candidate.resolve(strict=False)
+    try:
+        resolved.relative_to(key_dir_resolved)
+    except ValueError as exc:
+        raise ManifestError(
+            "Invalid manifest entry: "
+            f"{field_name} '{raw_path}' is outside key dir '{key_dir_resolved}'"
+        ) from exc
+    return resolved
 
 
 def create_key(
@@ -58,17 +73,26 @@ def create_key(
 def delete_key(name: str, config: Config | None = None) -> KeyRecord | None:
     config = config or load_config()
     records = load_manifest(config.manifest_path)
-    record = records.pop(name, None)
+    record = records.get(name)
     if record is None:
         return None
 
-    key_path = Path(record.private_key_path)
-    pub_path = Path(record.public_key_path)
-    if key_path.exists():
-        key_path.unlink()
-    if pub_path.exists():
-        pub_path.unlink()
+    key_path = _manifest_path_within_key_dir(
+        record.private_key_path, key_dir=config.key_dir, field_name="private_key_path"
+    )
+    pub_path = _manifest_path_within_key_dir(
+        record.public_key_path, key_dir=config.key_dir, field_name="public_key_path"
+    )
 
+    try:
+        if key_path.exists():
+            key_path.unlink()
+        if pub_path.exists():
+            pub_path.unlink()
+    except OSError as exc:
+        raise ManifestError(f"Failed to remove key files for {name}") from exc
+
+    records.pop(name, None)
     save_manifest(config.manifest_path, records)
     return record
 
@@ -85,8 +109,15 @@ def get_key(name: str, config: Config | None = None) -> KeyRecord | None:
     return records.get(name)
 
 
-def read_public_key(record: KeyRecord) -> str:
-    return Path(record.public_key_path).read_text().strip()
+def read_public_key(record: KeyRecord, config: Config | None = None) -> str:
+    config = config or load_config()
+    pub_path = _manifest_path_within_key_dir(
+        record.public_key_path, key_dir=config.key_dir, field_name="public_key_path"
+    )
+    try:
+        return pub_path.read_text().strip()
+    except OSError as exc:
+        raise ManifestError(f"Failed to read public key file: {pub_path}") from exc
 
 
 def ssh_config_snippet(record: KeyRecord, host: str) -> str:

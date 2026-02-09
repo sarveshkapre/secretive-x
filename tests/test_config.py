@@ -100,3 +100,46 @@ def test_load_config_invalid_path_types(tmp_path, monkeypatch) -> None:
     )
     with pytest.raises(ConfigError, match="key_dir must be a string"):
         load_config()
+
+
+def test_load_config_policy_fields(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("secretive_x.config.user_config_path", lambda _: tmp_path)
+    (tmp_path / "config.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "key_dir": str(tmp_path / "keys"),
+                "manifest_path": str(tmp_path / "keys.json"),
+                "allowed_providers": ["fido2"],
+                "name_pattern": r"^corp-[a-z0-9-]+$",
+            }
+        )
+    )
+    cfg = load_config()
+    assert cfg.allowed_providers == ("fido2",)
+    assert cfg.name_pattern == r"^corp-[a-z0-9-]+$"
+
+
+def test_load_config_invalid_allowed_providers_shape(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("secretive_x.config.user_config_path", lambda _: tmp_path)
+    (tmp_path / "config.json").write_text(
+        json.dumps({"allowed_providers": "fido2", "name_pattern": r"^[a-z]+$"})
+    )
+    with pytest.raises(ConfigError, match="allowed_providers must be a list"):
+        load_config()
+
+
+def test_load_config_unknown_allowed_provider(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("secretive_x.config.user_config_path", lambda _: tmp_path)
+    (tmp_path / "config.json").write_text(
+        json.dumps({"allowed_providers": ["fido2", "secure-enclave"]})
+    )
+    with pytest.raises(ConfigError, match="unknown providers"):
+        load_config()
+
+
+def test_load_config_invalid_name_pattern_regex(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("secretive_x.config.user_config_path", lambda _: tmp_path)
+    (tmp_path / "config.json").write_text(json.dumps({"name_pattern": "["}))
+    with pytest.raises(ConfigError, match="invalid name_pattern regex"):
+        load_config()

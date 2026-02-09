@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.table import Table
 
 from . import __version__
-from .config import ConfigError, default_config, init_config, load_config
+from .config import ConfigError, default_config, init_config, load_config, validate_creation_policy
 from .core import (
     KeyExistsError,
     create_key,
@@ -207,7 +207,9 @@ def create(
     """Create a new key using the selected provider."""
     try:
         validate_name(name)
-    except ValueError as exc:
+        config = load_config()
+        validate_creation_policy(config, name=name, provider=provider.value)
+    except (ValueError, ConfigError) as exc:
         _fail(str(exc), json_output=json_output, code=2)
 
     if provider == Provider.software:
@@ -235,6 +237,7 @@ def create(
             resident=resident,
             application=application,
             rounds=rounds,
+            config=config,
         )
     except KeyExistsError as exc:
         _fail(str(exc), json_output=json_output, code=2)
@@ -305,7 +308,10 @@ def pubkey(
     if record is None:
         _fail("Key not found.", json_output=json_output, code=2)
 
-    key = read_public_key(record)
+    try:
+        key = read_public_key(record)
+    except (ConfigError, ManifestError) as exc:
+        _fail(str(exc), json_output=json_output, code=2)
     if output:
         if output.exists() and not force:
             _fail(f"Output file exists: {output}", json_output=json_output, code=2)

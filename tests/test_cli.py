@@ -158,11 +158,67 @@ def test_list_json_provider_filter(monkeypatch) -> None:
 
 def test_create_json(monkeypatch) -> None:
     monkeypatch.setattr(cli, "validate_name", lambda n: n)
+    monkeypatch.setattr(
+        cli,
+        "load_config",
+        lambda: Config(
+            config_path=Path("/tmp/config.json"),
+            key_dir=Path("/tmp/keys"),
+            manifest_path=Path("/tmp/keys.json"),
+        ),
+    )
     monkeypatch.setattr(cli, "create_key", lambda **kwargs: _record())
     result = runner.invoke(cli.app, ["create", "--name", "demo", "--json"])
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
     assert payload["created"]["name"] == "demo"
+
+
+def test_create_rejects_disallowed_provider_policy(monkeypatch) -> None:
+    monkeypatch.setattr(cli, "validate_name", lambda n: n)
+    monkeypatch.setattr(
+        cli,
+        "load_config",
+        lambda: Config(
+            config_path=Path("/tmp/config.json"),
+            key_dir=Path("/tmp/keys"),
+            manifest_path=Path("/tmp/keys.json"),
+            allowed_providers=("fido2",),
+        ),
+    )
+
+    def _create_key(**kwargs):
+        raise AssertionError("create_key should not run for disallowed provider")
+
+    monkeypatch.setattr(cli, "create_key", _create_key)
+    result = runner.invoke(
+        cli.app, ["create", "--name", "demo", "--provider", "software", "--no-passphrase"]
+    )
+    assert result.exit_code == 2
+    assert "not allowed by config policy" in result.stdout
+
+
+def test_create_rejects_name_pattern_policy(monkeypatch) -> None:
+    monkeypatch.setattr(cli, "validate_name", lambda n: n)
+    monkeypatch.setattr(
+        cli,
+        "load_config",
+        lambda: Config(
+            config_path=Path("/tmp/config.json"),
+            key_dir=Path("/tmp/keys"),
+            manifest_path=Path("/tmp/keys.json"),
+            allowed_providers=("fido2", "software"),
+            name_pattern=r"^corp-[a-z0-9-]+$",
+        ),
+    )
+
+    def _create_key(**kwargs):
+        raise AssertionError("create_key should not run for disallowed key name")
+
+    monkeypatch.setattr(cli, "create_key", _create_key)
+    result = runner.invoke(cli.app, ["create", "--name", "demo", "--provider", "fido2"])
+    assert result.exit_code == 2
+    assert "does not match configured name policy" in result.stdout
 
 
 def test_pubkey_json(monkeypatch) -> None:
@@ -173,6 +229,19 @@ def test_pubkey_json(monkeypatch) -> None:
     payload = json.loads(result.stdout)
     assert payload["name"] == "demo"
     assert payload["public_key"].startswith("ssh-")
+
+
+def test_pubkey_json_manifest_error(monkeypatch) -> None:
+    monkeypatch.setattr(cli, "get_key", lambda name: _record())
+    monkeypatch.setattr(
+        cli,
+        "read_public_key",
+        lambda record: (_ for _ in ()).throw(ManifestError("unsafe public key path")),
+    )
+    result = runner.invoke(cli.app, ["pubkey", "demo", "--json"])
+    assert result.exit_code == 2
+    payload = json.loads(result.stdout)
+    assert payload["error"] == "unsafe public key path"
 
 
 def test_pubkey_output_file(monkeypatch, tmp_path) -> None:
