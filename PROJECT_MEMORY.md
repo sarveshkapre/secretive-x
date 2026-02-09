@@ -56,7 +56,27 @@
 - Trust label: verified-local-tests-and-ci.
 - Follow-ups: ship a non-destructive `scan` reconciliation command to help resolve drift safely.
 
+### 2026-02-09: Add `scan` drift reconciliation command
+- Decision: Added `scan` to detect drift between manifest and key dir, and optionally import untracked on-disk keypairs into the manifest (`scan --apply`).
+- Why: `doctor` can highlight drift, but users need a safe, non-destructive way to reconcile common “manifest missing entries” cases without hand-editing JSON.
+- Evidence: `src/secretive_x/cli.py`, `tests/test_cli.py`, `README.md`.
+- Commit: `34d59cc`.
+- Confidence: high.
+- Trust label: verified-local-tests-and-ci.
+- Follow-ups: consider adding an explicit `--prune-missing` mode for cleaning manifest entries that reference missing files.
+
+### 2026-02-09: Add OS-matrix CI smoke and best-effort secure permissions
+- Decision: Added `smoke-os` CI job (ubuntu/macos/windows) using a cross-platform script, and hardened atomic writes with best-effort POSIX permissions (`0600` files, `0700` dirs).
+- Why: Cross-platform runtime drift is common for CLIs; a lightweight OS-matrix smoke catches import/env/platformdirs issues early without requiring full `make check` parity on Windows.
+- Evidence: `scripts/smoke_cli.py`, `.github/workflows/ci.yml`, `src/secretive_x/utils.py`, run `https://github.com/sarveshkapre/secretive-x/actions/runs/21827476179`.
+- Commit: `0f24a16`.
+- Confidence: high.
+- Trust label: verified-github-actions.
+- Follow-ups: evaluate expanding OS coverage beyond smoke once Windows-compatible equivalents of `make check` targets exist.
+
 ## Verification Evidence
 - `make check` (pass)
+- `PYTHONPATH=src .venv/bin/python scripts/smoke_cli.py` (pass)
 - `gh run view 21819876084 --json conclusion,status,headSha,url` (pass; conclusion: success)
 - `gh run watch 21819955705 --exit-status` (pass; ci workflow on `main`)
+- `gh run watch 21827476179 --exit-status` (pass; ci workflow on `main`)

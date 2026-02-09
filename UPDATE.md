@@ -1,3 +1,17 @@
+# Update (2026-02-09, cycle 3)
+
+## Shipped
+- Inventory UX: added `scan` to detect manifest/key-dir drift and optionally import untracked on-disk keypairs into the manifest (`scan --apply`).
+- Security hardening: best-effort POSIX permissions for config/manifest writes (`0600` files, `0700` dirs) and secure permissions for the key directory when created.
+- CI reliability: added an OS-matrix smoke job (ubuntu/macos/windows) using `scripts/smoke_cli.py` for cross-platform runtime coverage.
+
+## Verification
+```bash
+make check
+PYTHONPATH=src .venv/bin/python scripts/smoke_cli.py
+gh run watch 21827476179 --exit-status
+```
+
 # Update (2026-02-09, cycle 2)
 
 ## Shipped
