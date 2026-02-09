@@ -80,3 +80,4 @@
 - `gh run view 21819876084 --json conclusion,status,headSha,url` (pass; conclusion: success)
 - `gh run watch 21819955705 --exit-status` (pass; ci workflow on `main`)
 - `gh run watch 21827476179 --exit-status` (pass; ci workflow on `main`)
+- `gh run watch 21827544437 --exit-status` (pass; ci workflow on `main`)
