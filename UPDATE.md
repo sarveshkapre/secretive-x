@@ -19,7 +19,7 @@ HOME="$tmp_home" XDG_CONFIG_HOME="$tmp_cfg" PYTHONPATH=src \
 .venv/bin/python -m secretive_x.cli info --json && \
 .venv/bin/python -m secretive_x.cli list --json && \
 .venv/bin/python -m secretive_x.cli version --json
-gh run watch 21819876084 --exit-status
+gh run watch 21819955705 --exit-status
 ```
 
 # Update (2026-02-09)

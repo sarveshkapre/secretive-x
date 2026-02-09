@@ -58,4 +58,5 @@
 
 ## Verification Evidence
 - `make check` (pass)
-- `gh run view 21819876084` (ci workflow on `main`, conclusion: success)
+- `gh run view 21819876084 --json conclusion,status,headSha,url` (pass; conclusion: success)
+- `gh run watch 21819955705 --exit-status` (pass; ci workflow on `main`)
