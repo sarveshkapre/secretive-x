@@ -6,17 +6,20 @@
 - CI reliability: expanded `check` workflow job to Python `3.11` + `3.13` matrix and validated green on both.
 - Runtime validation: added `make smoke` for non-destructive isolated CLI verification (`init`, `info`, `list`, `version`).
 - Test coverage: added regression tests for policy parsing/enforcement and core path-hardening behavior.
+- DevX: `make check` now auto-uses `.venv` tools when present (works immediately after `make setup` without PATH tweaks).
+- UX/safety: `create` now fails fast with actionable errors when `ssh-keygen` is missing or OpenSSH lacks FIDO2 key support; rejects provider-incompatible flags.
+- Reliability: `doctor` now reports manifest/key-dir drift (missing files, untracked pairs) and treats invalid manifest paths as unhealthy.
 
 ## Verification
 ```bash
-PATH="$(pwd)/.venv/bin:$PATH" make check
+make check
 tmp_home="$(mktemp -d)"; tmp_cfg="$(mktemp -d)"; \
-HOME="$tmp_home" XDG_CONFIG_HOME="$tmp_cfg" PYTHONPATH=src PATH="$(pwd)/.venv/bin:$PATH" \
-python3 -m secretive_x.cli init --json && \
-python3 -m secretive_x.cli info --json && \
-python3 -m secretive_x.cli list --json && \
-python3 -m secretive_x.cli version --json
-gh run watch 21809972093 --exit-status
+HOME="$tmp_home" XDG_CONFIG_HOME="$tmp_cfg" PYTHONPATH=src \
+.venv/bin/python -m secretive_x.cli init --json && \
+.venv/bin/python -m secretive_x.cli info --json && \
+.venv/bin/python -m secretive_x.cli list --json && \
+.venv/bin/python -m secretive_x.cli version --json
+gh run watch 21819876084 --exit-status
 ```
 
 # Update (2026-02-09)

@@ -14,3 +14,13 @@
 
 ## 2026-02-09 session note
 - No new production regressions introduced in this session.
+
+## 2026-02-09: Bandit security gate failed on `assert` in runtime code
+- Status: resolved.
+- Impact: `make check` failed at `bandit` during local verification.
+- Root cause: `assert` was used in non-test code (`doctor` drift block), triggering Bandit `B101`.
+- Detection: `make check` output flagged `src/secretive_x/cli.py` with `B101:assert_used`.
+- Resolution: Removed `assert` and used a defensive local default (`records = manifest_records or {}`).
+- Prevention rules:
+  - Avoid `assert` in runtime code; prefer explicit checks/defaults.
+  - Run `make check` before committing to catch security-gate regressions early.

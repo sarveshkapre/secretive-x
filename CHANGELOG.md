@@ -1,6 +1,9 @@
 # CHANGELOG
 
 ## Unreleased
+- Make `make check` work after `make setup` by auto-using the `.venv` toolchain when present.
+- Add `create` preflight checks so FIDO2 key creation fails fast with actionable errors when `ssh-keygen` is missing or OpenSSH lacks `ed25519-sk` support; reject provider-incompatible flags.
+- Extend `doctor` to report manifest/key-dir drift (missing files, untracked pairs) in both human and `--json` output; treat invalid manifest paths as unhealthy.
 - Add config policy guardrails for key creation (`allowed_providers`, `name_pattern`) and enforce them in `create`.
 - Harden manifest path trust boundaries by rejecting `pubkey`/`delete` operations when paths fall outside configured key dir.
 - Add regression tests for config policy parsing, policy enforcement, and tampered-manifest path handling.

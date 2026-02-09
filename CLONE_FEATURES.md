@@ -8,24 +8,28 @@
 - GitHub Actions failure runs (`ci` workflow)
 
 ## Candidate Features To Do
-- [ ] (Selected, cycle 1) P0 Add `create` preflight checks so FIDO2 key creation fails fast with actionable errors when `ssh-keygen` is missing or OpenSSH lacks `ed25519-sk` support.
-- [ ] (Selected, cycle 1) P0 Add a non-destructive manifest reconciliation command (proposed: `secretive-x scan`) to detect and optionally fix drift between manifest and `key_dir` (import missing entries, report missing files); include `--json` and `--apply`.
-- [ ] (Selected, cycle 1) P1 Extend `doctor` to report drift (manifest entries with missing key files; key files on disk not in manifest) in both human and `--json` output.
-- [ ] (Selected, cycle 1) P1 Harden atomic writes with best-effort POSIX permissions (`0600` files, `0700` config dir) without breaking Windows.
+- [ ] P0 Add a non-destructive manifest reconciliation command (proposed: `secretive-x scan`) to detect and optionally fix drift between manifest and `key_dir` (import missing entries, report missing files); include `--json` and `--apply`.
+- [ ] P1 Harden atomic writes with best-effort POSIX permissions (`0600` files, `0700` config dir) without breaking Windows.
 - [ ] P0 Implement Secure Enclave provider flow on macOS (create/list/delete parity with current providers).
 - [ ] P0 Implement TPM provider flow for Linux/Windows.
 - [ ] P1 Add resident key enumeration/removal commands for FIDO2 hardware keys.
 - [ ] P1 Add policy profiles/presets for org rollouts on top of `allowed_providers` + `name_pattern`.
 - [ ] P1 Add SSH agent integration guidance/commands for key caching workflows.
 - [ ] P2 Add audit export (`JSON`/`CSV`) for key inventory and lifecycle events.
+- [ ] P2 Expand CI to an OS matrix (ubuntu/macos/windows) for basic CLI help + smoke-only coverage.
+- [ ] P2 Add a provider plugin interface (or internal abstraction) to keep Secure Enclave/TPM additions isolated.
 
 ### Scoring Lens (selected items)
-- `create` preflight checks: impact high | effort low | fit high | differentiation medium | risk low | confidence high
 - `scan` reconciliation: impact high | effort medium | fit high | differentiation medium | risk medium | confidence medium
-- `doctor` drift checks: impact medium | effort low | fit high | differentiation low | risk low | confidence high
 - POSIX permission hardening: impact medium | effort low | fit high | differentiation low | risk low | confidence medium
 
 ## Implemented
+- [x] 2026-02-09: Make `make check` work after `make setup` by auto-using the `.venv` toolchain when present (no manual PATH tweaks).  
+  Evidence: `Makefile`, `README.md`, `docs/PROJECT.md`.
+- [x] 2026-02-09: Add `create` preflight checks so FIDO2 key creation fails fast with actionable errors when `ssh-keygen` is missing or OpenSSH lacks `ed25519-sk` support; reject provider-incompatible flags.  
+  Evidence: `src/secretive_x/cli.py`, `tests/test_cli.py`.
+- [x] 2026-02-09: Extend `doctor` to report drift (manifest entries with missing key files; key files on disk not in manifest) in both human and `--json` output; treat invalid manifest paths as unhealthy.  
+  Evidence: `src/secretive_x/cli.py`, `src/secretive_x/core.py`, `tests/test_cli.py`.
 - [x] 2026-02-09: Fixed Typer/Python 3.11 CI compatibility by removing optional union annotations from CLI option parameters and added command-help regression coverage.  
   Evidence: `src/secretive_x/cli.py`, `tests/test_cli.py`.
 - [x] 2026-02-09: Stabilized `gitleaks` CI by fetching full git history and removing unsupported `args` usage in the action.  
@@ -55,6 +59,10 @@
 - Manifest/config schema validation needs explicit shape checks to avoid accidental stack traces from malformed user-edited JSON.
 - Manifest paths are untrusted input; operations that read/delete key files must enforce key-dir boundaries.
 - A dedicated `make smoke` path catches CLI/runtime regressions that unit tests with monkeypatching may miss.
+- Market scan (untrusted external sources): mature SSH-key tools emphasize resident key workflows and hardware-backed storage (FIDO2, Secure Enclave/TPM), plus clear preflight diagnostics.
+  - OpenSSH `ssh-keygen` and resident key docs: https://man.openbsd.org/ssh-keygen
+  - OpenSSH release notes / FIDO2 key support context: https://www.openssh.com/releasenotes.html
+  - Secretive (macOS) reference UX for Secure Enclave-backed SSH keys: https://github.com/maxgoedjen/secretive
 
 ## Notes
 - This file is maintained by the autonomous clone loop.

@@ -28,3 +28,34 @@
 - Confidence: high.
 - Trust label: verified-github-actions.
 - Follow-ups: evaluate adding an OS matrix after TPM/Secure Enclave providers land.
+
+### 2026-02-09: Make `make check` work immediately after `make setup`
+- Decision: Updated `Makefile` to prefer `.venv/bin/*` tools when a local venv exists.
+- Why: Reduces dev/CI parity issues and prevents confusing “tool not found” failures when deps are installed only in `.venv`.
+- Evidence: `Makefile`, `README.md`, `docs/PROJECT.md`.
+- Commit: `5a9dc1f`.
+- Confidence: high.
+- Trust label: verified-local-tests-and-ci.
+- Follow-ups: consider adding a short “Getting started” section in `docs/PROJECT.md` for contributors without GNU make.
+
+### 2026-02-09: Add `create` preflight checks for `ssh-keygen` and FIDO2 support
+- Decision: `create` now checks for `ssh-keygen` on PATH and (when detectable) rejects FIDO2 creation if OpenSSH doesn’t advertise `sk-ssh-ed25519@openssh.com`; it also rejects provider-incompatible flags.
+- Why: Avoids prompting users for inputs or running partial flows before failing with opaque OpenSSH errors.
+- Evidence: `src/secretive_x/cli.py`, `tests/test_cli.py`.
+- Commit: `ca5cb61`.
+- Confidence: high.
+- Trust label: verified-local-tests-and-ci.
+- Follow-ups: add a provider-specific preflight command (or `doctor --strict`) once Secure Enclave / TPM providers exist.
+
+### 2026-02-09: Report manifest/key-dir drift in `doctor`
+- Decision: `doctor` now reports drift between manifest entries and on-disk key pairs, and treats invalid manifest paths (outside key dir) as unhealthy.
+- Why: Drift is common during manual file edits/cleanup; surfacing it early helps keep the manifest auditable and prevents confusing “missing file” failures later.
+- Evidence: `src/secretive_x/cli.py`, `src/secretive_x/core.py`, `tests/test_cli.py`.
+- Commit: `ae2f951`.
+- Confidence: medium-high.
+- Trust label: verified-local-tests-and-ci.
+- Follow-ups: ship a non-destructive `scan` reconciliation command to help resolve drift safely.
+
+## Verification Evidence
+- `make check` (pass)
+- `gh run view 21819876084` (ci workflow on `main`, conclusion: success)
