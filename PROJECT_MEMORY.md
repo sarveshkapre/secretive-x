@@ -96,6 +96,7 @@
 - `make check` (pass)
 - `gh run watch 21836306296 --exit-status` (pass; ci workflow on `main`)
 - `gh run watch 21836488654 --exit-status` (pass; ci workflow on `main`)
+- `gh run watch 21836608234 --exit-status` (pass; ci workflow on `main`)
 - `PYTHONPATH=src .venv/bin/python scripts/smoke_cli.py` (pass)
 - `gh run view 21819876084 --json conclusion,status,headSha,url` (pass; conclusion: success)
 - `gh run watch 21819955705 --exit-status` (pass; ci workflow on `main`)

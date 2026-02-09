@@ -7,7 +7,7 @@
 ## Verification
 ```bash
 make check
-gh run watch 21836488654 --exit-status
+gh run watch 21836608234 --exit-status
 ```
 
 # Update (2026-02-09, cycle 3)
