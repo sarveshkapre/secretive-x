@@ -477,3 +477,103 @@ def test_list_json_invalid_manifest(monkeypatch) -> None:
     assert result.exit_code == 2
     payload = json.loads(result.stdout)
     assert "error" in payload
+
+
+def test_scan_reports_untracked_pairs(monkeypatch, tmp_path) -> None:
+    key_dir = tmp_path / "keys"
+    key_dir.mkdir()
+    manifest_path = tmp_path / "keys.json"
+    manifest_path.write_text("{\"version\": 1, \"keys\": {}}")
+    (key_dir / "demo").write_text("priv")
+    (key_dir / "demo.pub").write_text("ssh-ed25519 AAAA demo\n")
+    cfg = Config(
+        config_path=tmp_path / "config.json",
+        key_dir=key_dir,
+        manifest_path=manifest_path,
+    )
+    monkeypatch.setattr(cli, "load_config", lambda: cfg)
+
+    result = runner.invoke(cli.app, ["scan", "--json"])
+    assert result.exit_code == 1
+    payload = json.loads(result.stdout)
+    assert payload["drift"]["key_dir_untracked_pairs"] == ["demo"]
+
+
+def test_scan_apply_imports_untracked_pairs(monkeypatch, tmp_path) -> None:
+    key_dir = tmp_path / "keys"
+    key_dir.mkdir()
+    manifest_path = tmp_path / "keys.json"
+    manifest_path.write_text("{\"version\": 1, \"keys\": {}}")
+    (key_dir / "demo").write_text("priv")
+    (key_dir / "demo.pub").write_text("ssh-ed25519 AAAA demo\n")
+    cfg = Config(
+        config_path=tmp_path / "config.json",
+        key_dir=key_dir,
+        manifest_path=manifest_path,
+    )
+    monkeypatch.setattr(cli, "load_config", lambda: cfg)
+
+    result = runner.invoke(cli.app, ["scan", "--apply", "--json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["apply"]["imported_count"] == 1
+    assert payload["apply"]["imported"][0]["name"] == "demo"
+    assert payload["apply"]["imported"][0]["provider"] == "software"
+
+    from secretive_x.store import load_manifest
+
+    records = load_manifest(manifest_path)
+    assert records["demo"].provider == "software"
+
+
+def test_scan_apply_infers_fido2_from_pubkey_type(monkeypatch, tmp_path) -> None:
+    key_dir = tmp_path / "keys"
+    key_dir.mkdir()
+    manifest_path = tmp_path / "keys.json"
+    manifest_path.write_text("{\"version\": 1, \"keys\": {}}")
+    (key_dir / "demo").write_text("priv")
+    (key_dir / "demo.pub").write_text("sk-ssh-ed25519@openssh.com AAAA demo\n")
+    cfg = Config(
+        config_path=tmp_path / "config.json",
+        key_dir=key_dir,
+        manifest_path=manifest_path,
+    )
+    monkeypatch.setattr(cli, "load_config", lambda: cfg)
+
+    result = runner.invoke(cli.app, ["scan", "--apply", "--json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["apply"]["imported"][0]["provider"] == "fido2"
+
+
+def test_scan_reports_manifest_entries_with_missing_files(monkeypatch, tmp_path) -> None:
+    key_dir = tmp_path / "keys"
+    key_dir.mkdir()
+    manifest_path = tmp_path / "keys.json"
+    cfg = Config(
+        config_path=tmp_path / "config.json",
+        key_dir=key_dir,
+        manifest_path=manifest_path,
+    )
+    monkeypatch.setattr(cli, "load_config", lambda: cfg)
+
+    from secretive_x.store import KeyRecord, save_manifest
+
+    record = KeyRecord(
+        name="demo",
+        provider="software",
+        created_at="2020-01-01T00:00:00+00:00",
+        public_key_path=str(key_dir / "demo.pub"),
+        private_key_path=str(key_dir / "demo"),
+        comment="demo@secretive-x",
+        resident=False,
+        application=None,
+    )
+    save_manifest(manifest_path, {"demo": record})
+
+    result = runner.invoke(cli.app, ["scan", "--json"])
+    assert result.exit_code == 1
+    payload = json.loads(result.stdout)
+    missing = payload["drift"]["manifest_entries_missing_files"][0]
+    assert missing["name"] == "demo"
+    assert set(missing["missing"]) == {"private", "public"}

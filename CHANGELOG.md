@@ -1,6 +1,7 @@
 # CHANGELOG
 
 ## Unreleased
+- Add `scan` command to detect drift between manifest and key directory and optionally import untracked on-disk keypairs (`scan --apply`), with `--json` output for automation.
 - Make `make check` work after `make setup` by auto-using the `.venv` toolchain when present.
 - Add `create` preflight checks so FIDO2 key creation fails fast with actionable errors when `ssh-keygen` is missing or OpenSSH lacks `ed25519-sk` support; reject provider-incompatible flags.
 - Extend `doctor` to report manifest/key-dir drift (missing files, untracked pairs) in both human and `--json` output; treat invalid manifest paths as unhealthy.

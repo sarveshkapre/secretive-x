@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import getpass
 import json
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 from typing import NoReturn
@@ -23,7 +24,7 @@ from .core import (
     ssh_config_snippet,
 )
 from .ssh import SshError, check_ssh_keygen, get_ssh_version, ssh_supports_key_type
-from .store import KeyRecord, ManifestError, load_manifest
+from .store import KeyRecord, ManifestError, load_manifest, save_manifest
 from .utils import atomic_write_text, validate_name
 
 app = typer.Typer(no_args_is_help=True)
@@ -73,6 +74,93 @@ def _fail(message: str, *, json_output: bool = False, code: int = 1) -> NoReturn
     else:
         console.print(message)
     raise typer.Exit(code=code)
+
+
+def _parse_pubkey_line(pubkey_line: str) -> tuple[str, str]:
+    parts = pubkey_line.strip().split()
+    if len(parts) < 2:
+        raise ValueError("Invalid public key format (expected: <type> <base64> [comment])")
+    key_type = parts[0]
+    comment = parts[2] if len(parts) >= 3 else ""
+    return key_type, comment
+
+
+def _infer_provider_from_key_type(key_type: str) -> str:
+    return "fido2" if key_type.startswith("sk-") else "software"
+
+
+def _compute_manifest_drift(
+    *,
+    key_dir: Path,
+    records: dict[str, KeyRecord],
+) -> tuple[
+    list[dict[str, str]],
+    list[dict[str, object]],
+    list[str],
+    list[str],
+    list[str],
+]:
+    invalid_manifest_paths: list[dict[str, str]] = []
+    manifest_entries_missing_files: list[dict[str, object]] = []
+    key_dir_untracked_pairs: list[str] = []
+    key_dir_orphan_public_keys: list[str] = []
+    key_dir_orphan_private_keys: list[str] = []
+
+    for record in records.values():
+        try:
+            key_path, pub_path = resolve_record_paths(record, key_dir=key_dir)
+        except ManifestError as exc:
+            invalid_manifest_paths.append({"name": record.name, "error": str(exc)})
+            continue
+
+        missing: list[str] = []
+        if not key_path.exists():
+            missing.append("private")
+        if not pub_path.exists():
+            missing.append("public")
+        if missing:
+            manifest_entries_missing_files.append({"name": record.name, "missing": missing})
+
+    try:
+        tracked = set(records.keys())
+        pub_names = set()
+        for pub_path in key_dir.glob("*.pub"):
+            name = pub_path.stem
+            pub_names.add(name)
+            priv_path = key_dir / name
+            if not priv_path.exists():
+                key_dir_orphan_public_keys.append(name)
+                continue
+            if name not in tracked:
+                key_dir_untracked_pairs.append(name)
+
+        for entry in key_dir.iterdir():
+            if not entry.is_file():
+                continue
+            if entry.name.endswith(".pub"):
+                continue
+            # Name policy allows dots; use the `.pub` pairing convention instead of suffix checks.
+            if (key_dir / f"{entry.name}.pub").exists():
+                continue
+            if entry.name in pub_names:
+                continue
+            key_dir_orphan_private_keys.append(entry.name)
+    except OSError as exc:
+        raise ManifestError("Failed to scan key directory for drift") from exc
+
+    invalid_manifest_paths.sort(key=lambda item: item["name"])
+    manifest_entries_missing_files.sort(key=lambda item: str(item["name"]))
+    key_dir_untracked_pairs = sorted(set(key_dir_untracked_pairs))
+    key_dir_orphan_public_keys = sorted(set(key_dir_orphan_public_keys))
+    key_dir_orphan_private_keys = sorted(set(key_dir_orphan_private_keys))
+
+    return (
+        invalid_manifest_paths,
+        manifest_entries_missing_files,
+        key_dir_untracked_pairs,
+        key_dir_orphan_public_keys,
+        key_dir_orphan_private_keys,
+    )
 
 
 @app.command()
@@ -258,6 +346,127 @@ def doctor(json_output: bool = JSON_OPTION) -> None:
         raise typer.Exit(code=1)
     if invalid_manifest_paths:
         raise typer.Exit(code=1)
+
+
+@app.command()
+def scan(
+    apply: bool = typer.Option(
+        False,
+        "--apply",
+        help="Apply safe manifest repairs (import untracked pairs).",
+    ),
+    json_output: bool = JSON_OPTION,
+) -> None:
+    """Scan for drift between the manifest and on-disk key directory and optionally repair it."""
+    try:
+        config = load_config()
+        records = load_manifest(config.manifest_path)
+    except (ConfigError, ManifestError) as exc:
+        _fail(str(exc), json_output=json_output, code=2)
+
+    if not config.key_dir.exists() or not config.key_dir.is_dir():
+        _fail(
+            f"Key dir is missing or not a directory: {config.key_dir}",
+            json_output=json_output,
+            code=2,
+        )
+
+    (
+        invalid_manifest_paths,
+        manifest_entries_missing_files,
+        key_dir_untracked_pairs,
+        key_dir_orphan_public_keys,
+        key_dir_orphan_private_keys,
+    ) = _compute_manifest_drift(key_dir=config.key_dir, records=records)
+
+    imported: list[dict[str, object]] = []
+    skipped_imports: list[dict[str, str]] = []
+    if apply and key_dir_untracked_pairs:
+        for name in key_dir_untracked_pairs:
+            pub_path = config.key_dir / f"{name}.pub"
+            priv_path = config.key_dir / name
+            try:
+                pub_line = pub_path.read_text().strip()
+                key_type, comment = _parse_pubkey_line(pub_line)
+                provider = _infer_provider_from_key_type(key_type)
+                if not comment:
+                    comment = f"{name}@secretive-x"
+                created_at = datetime.fromtimestamp(pub_path.stat().st_mtime, tz=UTC).isoformat()
+                record = KeyRecord(
+                    name=name,
+                    provider=provider,
+                    created_at=created_at,
+                    public_key_path=str(pub_path),
+                    private_key_path=str(priv_path),
+                    comment=comment,
+                    resident=False,
+                    application=None,
+                )
+                records[name] = record
+                imported.append(_record_to_json(record))
+            except (OSError, ValueError) as exc:
+                skipped_imports.append({"name": name, "error": str(exc)})
+
+        try:
+            save_manifest(config.manifest_path, records)
+        except ManifestError as exc:
+            _fail(str(exc), json_output=json_output, code=2)
+
+        # Recompute drift after applying imports so exit code reflects remaining issues.
+        (
+            invalid_manifest_paths,
+            manifest_entries_missing_files,
+            key_dir_untracked_pairs,
+            key_dir_orphan_public_keys,
+            key_dir_orphan_private_keys,
+        ) = _compute_manifest_drift(key_dir=config.key_dir, records=records)
+
+    drift_present = bool(
+        invalid_manifest_paths
+        or manifest_entries_missing_files
+        or key_dir_untracked_pairs
+        or key_dir_orphan_public_keys
+        or key_dir_orphan_private_keys
+    )
+
+    if json_output:
+        _print_json(
+            {
+                "key_dir": str(config.key_dir),
+                "manifest_path": str(config.manifest_path),
+                "apply": {
+                    "requested": apply,
+                    "imported_count": len(imported),
+                    "imported": imported,
+                    "skipped": skipped_imports,
+                },
+                "drift": {
+                    "invalid_manifest_paths": invalid_manifest_paths,
+                    "manifest_entries_missing_files": manifest_entries_missing_files,
+                    "key_dir_untracked_pairs": key_dir_untracked_pairs,
+                    "key_dir_orphan_public_keys": key_dir_orphan_public_keys,
+                    "key_dir_orphan_private_keys": key_dir_orphan_private_keys,
+                },
+            }
+        )
+    else:
+        console.print(f"key dir: {config.key_dir}")
+        console.print(f"manifest: {config.manifest_path}")
+        if apply:
+            console.print(f"applied: imported={len(imported)} skipped={len(skipped_imports)}")
+        if not drift_present:
+            console.print("drift: OK")
+        else:
+            console.print(
+                "drift:"
+                f" invalid_paths={len(invalid_manifest_paths)}"
+                f" missing_files={len(manifest_entries_missing_files)}"
+                f" untracked_pairs={len(key_dir_untracked_pairs)}"
+                f" orphan_public={len(key_dir_orphan_public_keys)}"
+                f" orphan_private={len(key_dir_orphan_private_keys)}"
+            )
+
+    raise typer.Exit(code=1 if drift_present else 0)
 
 
 @app.command()

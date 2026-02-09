@@ -10,6 +10,7 @@ Status: **MVP (v0.1.0 target)** — FIDO2-backed keys are supported. Secure Encl
 - Provider filtering for key inventory (`list --provider`)
 - Config policy guardrails for key creation (`allowed_providers`, `name_pattern`)
 - Tamper-resistant manifest path handling for `pubkey`/`delete`
+- Drift detection and safe reconciliation (`doctor` drift reporting; `scan --apply` to import untracked keypairs)
 - Safe defaults (key naming validation, no overwrites, secure key directory)
 - Provider-aware workflow and clear error reporting
 - One-command diagnostics (`doctor`)
@@ -38,6 +39,13 @@ Run a non-destructive smoke path:
 
 ```bash
 make smoke
+```
+
+Scan for drift between the manifest and key directory (and optionally import untracked pairs):
+
+```bash
+python3 -m secretive_x.cli scan
+python3 -m secretive_x.cli scan --apply
 ```
 
 Create a FIDO2-backed key:

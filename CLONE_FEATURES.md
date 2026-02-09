@@ -8,15 +8,15 @@
 - GitHub Actions failure runs (`ci` workflow)
 
 ## Candidate Features To Do
-- [ ] P0 Add a non-destructive manifest reconciliation command (proposed: `secretive-x scan`) to detect and optionally fix drift between manifest and `key_dir` (import missing entries, report missing files); include `--json` and `--apply`.
-- [ ] P1 Harden atomic writes with best-effort POSIX permissions (`0600` files, `0700` config dir) without breaking Windows.
+- [ ] P0 (Selected) Add a non-destructive manifest reconciliation command (proposed: `secretive-x scan`) to detect and optionally fix drift between manifest and `key_dir` (import untracked on-disk keypairs into manifest; report missing files/invalid paths); include `--json` and `--apply`.
+- [ ] P1 (Selected) Harden atomic writes with best-effort POSIX permissions (`0600` files, `0700` config dir) without breaking Windows.
+- [ ] P2 (Selected) Add a cross-platform CLI smoke script and expand CI to an OS matrix (ubuntu/macos/windows) for basic help + smoke-only coverage.
 - [ ] P0 Implement Secure Enclave provider flow on macOS (create/list/delete parity with current providers).
 - [ ] P0 Implement TPM provider flow for Linux/Windows.
 - [ ] P1 Add resident key enumeration/removal commands for FIDO2 hardware keys.
 - [ ] P1 Add policy profiles/presets for org rollouts on top of `allowed_providers` + `name_pattern`.
 - [ ] P1 Add SSH agent integration guidance/commands for key caching workflows.
 - [ ] P2 Add audit export (`JSON`/`CSV`) for key inventory and lifecycle events.
-- [ ] P2 Expand CI to an OS matrix (ubuntu/macos/windows) for basic CLI help + smoke-only coverage.
 - [ ] P2 Add a provider plugin interface (or internal abstraction) to keep Secure Enclave/TPM additions isolated.
 
 ### Scoring Lens (selected items)
@@ -63,6 +63,8 @@
   - OpenSSH `ssh-keygen` and resident key docs: https://man.openbsd.org/ssh-keygen
   - OpenSSH release notes / FIDO2 key support context: https://www.openssh.com/releasenotes.html
   - Secretive (macOS) reference UX for Secure Enclave-backed SSH keys: https://github.com/maxgoedjen/secretive
+  - Yubico FIDO2 SSH guidance (resident keys, `-O verify-required`, Windows notes): https://developers.yubico.com/SSH/Securing_SSH_with_FIDO2.html
+  - Nitrokey FIDO2 SSH guidance (resident vs non-resident keys, `ssh-keygen -K`): https://docs.nitrokey.com/nitrokeys/features/fido2/ssh
 
 ## Notes
 - This file is maintained by the autonomous clone loop.
