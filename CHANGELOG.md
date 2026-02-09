@@ -2,6 +2,8 @@
 
 ## Unreleased
 - Add `scan` command to detect drift between manifest and key directory and optionally import untracked on-disk keypairs (`scan --apply`), with `--json` output for automation.
+- Harden config/manifest atomic writes with best-effort POSIX permissions (`0600` files, `0700` dirs) and ensure key dir uses secure permissions when created.
+- Expand CI with a cross-platform smoke job (ubuntu/macos/windows) for basic CLI runtime coverage.
 - Make `make check` work after `make setup` by auto-using the `.venv` toolchain when present.
 - Add `create` preflight checks so FIDO2 key creation fails fast with actionable errors when `ssh-keygen` is missing or OpenSSH lacks `ed25519-sk` support; reject provider-incompatible flags.
 - Extend `doctor` to report manifest/key-dir drift (missing files, untracked pairs) in both human and `--json` output; treat invalid manifest paths as unhealthy.

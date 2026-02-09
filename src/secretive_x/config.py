@@ -7,7 +7,7 @@ from pathlib import Path
 
 from platformdirs import user_config_path
 
-from .utils import atomic_write_json
+from .utils import atomic_write_json, best_effort_chmod
 
 APP_NAME = "secretive-x"
 SUPPORTED_PROVIDERS = frozenset({"fido2", "software"})
@@ -150,4 +150,7 @@ def init_config(*, force: bool = False) -> Config:
 
     config.key_dir.mkdir(parents=True, exist_ok=True)
     config.manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    best_effort_chmod(config.key_dir, 0o700)
+    best_effort_chmod(config.manifest_path.parent, 0o700)
+    best_effort_chmod(config.config_path, 0o600)
     return config

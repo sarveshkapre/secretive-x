@@ -5,6 +5,7 @@ from pathlib import Path
 from .config import Config, load_config
 from .ssh import build_ssh_keygen_cmd, generate_key
 from .store import KeyRecord, ManifestError, load_manifest, save_manifest
+from .utils import best_effort_chmod
 
 
 class KeyExistsError(RuntimeError):
@@ -49,6 +50,7 @@ def create_key(
 ) -> KeyRecord:
     config = config or load_config()
     config.key_dir.mkdir(parents=True, exist_ok=True)
+    best_effort_chmod(config.key_dir, 0o700)
     key_path = config.key_dir / name
     pub_path = config.key_dir / f"{name}.pub"
 

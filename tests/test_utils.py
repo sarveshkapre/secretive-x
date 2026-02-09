@@ -32,3 +32,19 @@ def test_atomic_write_text(tmp_path: Path) -> None:
     atomic_write_text(target, "hello\n")
     assert target.exists()
     assert target.read_text() == "hello\n"
+
+
+def test_atomic_write_sets_secure_permissions_on_posix(tmp_path: Path) -> None:
+    import os
+
+    if os.name != "posix":
+        return
+
+    a_dir = tmp_path / "a"
+    a_dir.mkdir()
+    os.chmod(a_dir, 0o755)
+
+    target = a_dir / "b" / "note.txt"
+    atomic_write_text(target, "hello\n")
+    assert (target.stat().st_mode & 0o777) == 0o600
+    assert (target.parent.stat().st_mode & 0o777) == 0o700

@@ -8,9 +8,6 @@
 - GitHub Actions failure runs (`ci` workflow)
 
 ## Candidate Features To Do
-- [ ] P0 (Selected) Add a non-destructive manifest reconciliation command (proposed: `secretive-x scan`) to detect and optionally fix drift between manifest and `key_dir` (import untracked on-disk keypairs into manifest; report missing files/invalid paths); include `--json` and `--apply`.
-- [ ] P1 (Selected) Harden atomic writes with best-effort POSIX permissions (`0600` files, `0700` config dir) without breaking Windows.
-- [ ] P2 (Selected) Add a cross-platform CLI smoke script and expand CI to an OS matrix (ubuntu/macos/windows) for basic help + smoke-only coverage.
 - [ ] P0 Implement Secure Enclave provider flow on macOS (create/list/delete parity with current providers).
 - [ ] P0 Implement TPM provider flow for Linux/Windows.
 - [ ] P1 Add resident key enumeration/removal commands for FIDO2 hardware keys.
@@ -24,6 +21,12 @@
 - POSIX permission hardening: impact medium | effort low | fit high | differentiation low | risk low | confidence medium
 
 ## Implemented
+- [x] 2026-02-09: Add `scan` command to detect manifest/key-dir drift and optionally import untracked on-disk keypairs into the manifest (`--apply`), with `--json` output for automation.  
+  Evidence: `src/secretive_x/cli.py`, `tests/test_cli.py`, `README.md`, `CHANGELOG.md`.
+- [x] 2026-02-09: Harden atomic writes and directory creation with best-effort POSIX permissions (`0600` files, `0700` dirs) and ensure key dir uses secure permissions when created.  
+  Evidence: `src/secretive_x/utils.py`, `src/secretive_x/config.py`, `src/secretive_x/core.py`, `tests/test_utils.py`.
+- [x] 2026-02-09: Add a cross-platform CLI smoke script and expand CI with an OS matrix smoke job (ubuntu/macos/windows).  
+  Evidence: `scripts/smoke_cli.py`, `.github/workflows/ci.yml`.
 - [x] 2026-02-09: Make `make check` work after `make setup` by auto-using the `.venv` toolchain when present (no manual PATH tweaks).  
   Evidence: `Makefile`, `README.md`, `docs/PROJECT.md`.
 - [x] 2026-02-09: Add `create` preflight checks so FIDO2 key creation fails fast with actionable errors when `ssh-keygen` is missing or OpenSSH lacks `ed25519-sk` support; reject provider-incompatible flags.  
