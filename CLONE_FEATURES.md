@@ -8,12 +8,22 @@
 - GitHub Actions failure runs (`ci` workflow)
 
 ## Candidate Features To Do
+- [ ] (Selected, cycle 1) P0 Add `create` preflight checks so FIDO2 key creation fails fast with actionable errors when `ssh-keygen` is missing or OpenSSH lacks `ed25519-sk` support.
+- [ ] (Selected, cycle 1) P0 Add a non-destructive manifest reconciliation command (proposed: `secretive-x scan`) to detect and optionally fix drift between manifest and `key_dir` (import missing entries, report missing files); include `--json` and `--apply`.
+- [ ] (Selected, cycle 1) P1 Extend `doctor` to report drift (manifest entries with missing key files; key files on disk not in manifest) in both human and `--json` output.
+- [ ] (Selected, cycle 1) P1 Harden atomic writes with best-effort POSIX permissions (`0600` files, `0700` config dir) without breaking Windows.
 - [ ] P0 Implement Secure Enclave provider flow on macOS (create/list/delete parity with current providers).
 - [ ] P0 Implement TPM provider flow for Linux/Windows.
 - [ ] P1 Add resident key enumeration/removal commands for FIDO2 hardware keys.
 - [ ] P1 Add policy profiles/presets for org rollouts on top of `allowed_providers` + `name_pattern`.
 - [ ] P1 Add SSH agent integration guidance/commands for key caching workflows.
 - [ ] P2 Add audit export (`JSON`/`CSV`) for key inventory and lifecycle events.
+
+### Scoring Lens (selected items)
+- `create` preflight checks: impact high | effort low | fit high | differentiation medium | risk low | confidence high
+- `scan` reconciliation: impact high | effort medium | fit high | differentiation medium | risk medium | confidence medium
+- `doctor` drift checks: impact medium | effort low | fit high | differentiation low | risk low | confidence high
+- POSIX permission hardening: impact medium | effort low | fit high | differentiation low | risk low | confidence medium
 
 ## Implemented
 - [x] 2026-02-09: Fixed Typer/Python 3.11 CI compatibility by removing optional union annotations from CLI option parameters and added command-help regression coverage.  
