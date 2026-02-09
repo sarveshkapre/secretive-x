@@ -7,5 +7,5 @@
 
 ## Later
 - GUI with key inventory and status
-- Policy-based key creation (allowed providers, naming rules)
+- Policy profiles and org templates (building on current provider/name guardrails)
 - Audit export (JSON/CSV)

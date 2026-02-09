@@ -8,6 +8,8 @@ Status: **MVP (v0.1.0 target)** — FIDO2-backed keys are supported. Secure Encl
 - FIDO2-backed SSH keys via `ssh-keygen -t ed25519-sk`
 - Local key inventory with metadata and integrity checks
 - Provider filtering for key inventory (`list --provider`)
+- Config policy guardrails for key creation (`allowed_providers`, `name_pattern`)
+- Tamper-resistant manifest path handling for `pubkey`/`delete`
 - Safe defaults (key naming validation, no overwrites, secure key directory)
 - Provider-aware workflow and clear error reporting
 - One-command diagnostics (`doctor`)
@@ -24,6 +26,12 @@ Install dev deps and run locally:
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
+```
+
+Run a non-destructive smoke path:
+
+```bash
+make smoke
 ```
 
 Create a FIDO2-backed key:
@@ -63,6 +71,16 @@ python3 -m secretive_x.cli ssh-config --name work-laptop --host github.com
 - Config: `~/.config/secretive-x/config.json`
 - Keys: `~/.ssh/secretive-x/`
 - Manifest: `~/.config/secretive-x/keys.json`
+
+## Config policy guardrails
+`config.json` supports optional policy fields enforced by `create`:
+
+```json
+{
+  "allowed_providers": ["fido2", "software"],
+  "name_pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+}
+```
 
 ## Limitations
 - Secure Enclave and TPM providers are **not** implemented yet (see `docs/ROADMAP.md`).

@@ -1,6 +1,11 @@
 # CHANGELOG
 
 ## Unreleased
+- Add config policy guardrails for key creation (`allowed_providers`, `name_pattern`) and enforce them in `create`.
+- Harden manifest path trust boundaries by rejecting `pubkey`/`delete` operations when paths fall outside configured key dir.
+- Add regression tests for config policy parsing, policy enforcement, and tampered-manifest path handling.
+- Add `make smoke` non-destructive CLI runtime path (`init`, `info`, `list`, `version` in isolated temp env).
+- Expand CI `check` job to Python matrix (`3.11`, `3.13`).
 - Fix CLI compatibility for Python 3.11/Typer by avoiding unsupported optional union option annotations.
 - Add `list --provider` filtering and deterministic key ordering for table/JSON output.
 - Harden config parsing with explicit schema/type validation and actionable `ConfigError` messages.

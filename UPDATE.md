@@ -1,3 +1,24 @@
+# Update (2026-02-09, cycle 2)
+
+## Shipped
+- Security/policy: added config-driven creation guardrails (`allowed_providers`, `name_pattern`) enforced by `create`.
+- Security hardening: `pubkey` and `delete` now reject manifest paths outside configured key dir, blocking tampered manifest path traversal.
+- CI reliability: expanded `check` workflow job to Python `3.11` + `3.13` matrix and validated green on both.
+- Runtime validation: added `make smoke` for non-destructive isolated CLI verification (`init`, `info`, `list`, `version`).
+- Test coverage: added regression tests for policy parsing/enforcement and core path-hardening behavior.
+
+## Verification
+```bash
+PATH="$(pwd)/.venv/bin:$PATH" make check
+tmp_home="$(mktemp -d)"; tmp_cfg="$(mktemp -d)"; \
+HOME="$tmp_home" XDG_CONFIG_HOME="$tmp_cfg" PYTHONPATH=src PATH="$(pwd)/.venv/bin:$PATH" \
+python3 -m secretive_x.cli init --json && \
+python3 -m secretive_x.cli info --json && \
+python3 -m secretive_x.cli list --json && \
+python3 -m secretive_x.cli version --json
+gh run watch 21809972093 --exit-status
+```
+
 # Update (2026-02-09)
 
 ## Shipped

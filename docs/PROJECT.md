@@ -18,6 +18,11 @@ PYTHONPATH=src python3 -m secretive_x.cli list --provider fido2 --json
 PYTHONPATH=src pytest
 ```
 
+## Smoke
+```bash
+make smoke
+```
+
 ## Lint
 ```bash
 ruff check src tests

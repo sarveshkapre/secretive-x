@@ -32,8 +32,12 @@ make check
 - Automation: `--json` output mode for `create`, `pubkey`, `ssh-config`, and `delete` (delete requires `--yes` when using `--json`).
 - Automation: `version` command (supports `--json`).
 - UX: `pubkey` and `ssh-config` can now write to files with `--output` and `--force`.
+- Security/policy: config now supports creation guardrails (`allowed_providers`, `name_pattern`) enforced by `create`.
+- Security hardening: `pubkey`/`delete` now reject manifest paths outside the configured key directory.
+- Reliability: added core regression tests for path tampering and policy validation, plus CI matrix coverage on Python `3.11` and `3.13`.
+- Reliability: added `make smoke` for an isolated non-destructive CLI runtime check.
 
 ## Next to ship
 - Provider support: Secure Enclave (macOS) and TPM (Linux/Windows).
 - Key lifecycle: resident key enumeration/removal flow for FIDO2 devices.
-- Policy guardrails: enforce org naming/provider policy in config.
+- Policy UX: per-environment policy presets/profiles for org rollouts.
