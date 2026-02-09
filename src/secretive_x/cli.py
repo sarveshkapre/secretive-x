@@ -49,6 +49,16 @@ JSON_OPTION = typer.Option(False, "--json", help="Output machine-readable JSON."
 OUTPUT_OPTION = typer.Option(None, "--output", help="Write output to file.")
 FORCE_OUTPUT_OPTION = typer.Option(False, "--force", help="Overwrite output file.")
 LIST_PROVIDER_OPTION = typer.Option(None, "--provider", help="Filter by provider.")
+PRUNE_MISSING_OPTION = typer.Option(
+    False,
+    "--prune-missing",
+    help="Remove manifest entries that reference missing key files (destructive).",
+)
+PRUNE_INVALID_PATHS_OPTION = typer.Option(
+    False,
+    "--prune-invalid-paths",
+    help="Remove manifest entries with invalid/untrusted paths (destructive).",
+)
 
 
 def _print_json(payload: object) -> None:
@@ -355,6 +365,9 @@ def scan(
         "--apply",
         help="Apply safe manifest repairs (import untracked pairs).",
     ),
+    prune_missing: bool = PRUNE_MISSING_OPTION,
+    prune_invalid_paths: bool = PRUNE_INVALID_PATHS_OPTION,
+    yes: bool = YES_OPTION,
     json_output: bool = JSON_OPTION,
 ) -> None:
     """Scan for drift between the manifest and on-disk key directory and optionally repair it."""
@@ -379,8 +392,25 @@ def scan(
         key_dir_orphan_private_keys,
     ) = _compute_manifest_drift(key_dir=config.key_dir, records=records)
 
+    if json_output and not yes:
+        if prune_missing and manifest_entries_missing_files:
+            _fail(
+                "Use --yes with --json for non-interactive prune operations.",
+                json_output=True,
+                code=2,
+            )
+        if prune_invalid_paths and invalid_manifest_paths:
+            _fail(
+                "Use --yes with --json for non-interactive prune operations.",
+                json_output=True,
+                code=2,
+            )
+
     imported: list[dict[str, object]] = []
     skipped_imports: list[dict[str, str]] = []
+    pruned_missing: list[dict[str, object]] = []
+    pruned_invalid: list[dict[str, str]] = []
+
     if apply and key_dir_untracked_pairs:
         for name in key_dir_untracked_pairs:
             pub_path = config.key_dir / f"{name}.pub"
@@ -407,12 +437,47 @@ def scan(
             except (OSError, ValueError) as exc:
                 skipped_imports.append({"name": name, "error": str(exc)})
 
+    if prune_missing and manifest_entries_missing_files:
+        if not yes and not json_output:
+            confirmed = typer.confirm(
+                f"Prune {len(manifest_entries_missing_files)} manifest entr"
+                f"{'y' if len(manifest_entries_missing_files) == 1 else 'ies'} with missing files?",
+                default=False,
+            )
+            if not confirmed:
+                prune_missing = False
+
+        if prune_missing:
+            for missing_item in manifest_entries_missing_files:
+                name = str(missing_item.get("name", ""))
+                if name and name in records:
+                    records.pop(name, None)
+                    pruned_missing.append(missing_item)
+
+    if prune_invalid_paths and invalid_manifest_paths:
+        if not yes and not json_output:
+            confirmed = typer.confirm(
+                f"Prune {len(invalid_manifest_paths)} manifest entr"
+                f"{'y' if len(invalid_manifest_paths) == 1 else 'ies'} with invalid paths?",
+                default=False,
+            )
+            if not confirmed:
+                prune_invalid_paths = False
+
+        if prune_invalid_paths:
+            for invalid_item in invalid_manifest_paths:
+                name = str(invalid_item.get("name", ""))
+                if name and name in records:
+                    records.pop(name, None)
+                    pruned_invalid.append(invalid_item)
+
+    if imported or pruned_missing or pruned_invalid:
         try:
             save_manifest(config.manifest_path, records)
         except ManifestError as exc:
             _fail(str(exc), json_output=json_output, code=2)
 
-        # Recompute drift after applying imports so exit code reflects remaining issues.
+        # Recompute drift after applying changes so exit code reflects remaining issues.
         (
             invalid_manifest_paths,
             manifest_entries_missing_files,
@@ -439,6 +504,16 @@ def scan(
                     "imported_count": len(imported),
                     "imported": imported,
                     "skipped": skipped_imports,
+                    "prune_missing": {
+                        "requested": prune_missing,
+                        "pruned_count": len(pruned_missing),
+                        "pruned": pruned_missing,
+                    },
+                    "prune_invalid_paths": {
+                        "requested": prune_invalid_paths,
+                        "pruned_count": len(pruned_invalid),
+                        "pruned": pruned_invalid,
+                    },
                 },
                 "drift": {
                     "invalid_manifest_paths": invalid_manifest_paths,
@@ -452,8 +527,14 @@ def scan(
     else:
         console.print(f"key dir: {config.key_dir}")
         console.print(f"manifest: {config.manifest_path}")
-        if apply:
-            console.print(f"applied: imported={len(imported)} skipped={len(skipped_imports)}")
+        if apply or prune_missing or prune_invalid_paths:
+            console.print(
+                "applied:"
+                f" imported={len(imported)}"
+                f" pruned_missing={len(pruned_missing)}"
+                f" pruned_invalid_paths={len(pruned_invalid)}"
+                f" skipped={len(skipped_imports)}"
+            )
         if not drift_present:
             console.print("drift: OK")
         else:

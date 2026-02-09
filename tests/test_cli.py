@@ -577,3 +577,102 @@ def test_scan_reports_manifest_entries_with_missing_files(monkeypatch, tmp_path)
     missing = payload["drift"]["manifest_entries_missing_files"][0]
     assert missing["name"] == "demo"
     assert set(missing["missing"]) == {"private", "public"}
+
+
+def test_scan_prune_missing_requires_yes_with_json(monkeypatch, tmp_path) -> None:
+    key_dir = tmp_path / "keys"
+    key_dir.mkdir()
+    manifest_path = tmp_path / "keys.json"
+    cfg = Config(
+        config_path=tmp_path / "config.json",
+        key_dir=key_dir,
+        manifest_path=manifest_path,
+    )
+    monkeypatch.setattr(cli, "load_config", lambda: cfg)
+
+    from secretive_x.store import KeyRecord, save_manifest
+
+    record = KeyRecord(
+        name="demo",
+        provider="software",
+        created_at="2020-01-01T00:00:00+00:00",
+        public_key_path=str(key_dir / "demo.pub"),
+        private_key_path=str(key_dir / "demo"),
+        comment="demo@secretive-x",
+        resident=False,
+        application=None,
+    )
+    save_manifest(manifest_path, {"demo": record})
+
+    result = runner.invoke(cli.app, ["scan", "--prune-missing", "--json"])
+    assert result.exit_code == 2
+    payload = json.loads(result.stdout)
+    assert "--yes" in payload["error"]
+
+
+def test_scan_prune_missing_removes_entries(monkeypatch, tmp_path) -> None:
+    key_dir = tmp_path / "keys"
+    key_dir.mkdir()
+    manifest_path = tmp_path / "keys.json"
+    cfg = Config(
+        config_path=tmp_path / "config.json",
+        key_dir=key_dir,
+        manifest_path=manifest_path,
+    )
+    monkeypatch.setattr(cli, "load_config", lambda: cfg)
+
+    from secretive_x.store import KeyRecord, load_manifest, save_manifest
+
+    record = KeyRecord(
+        name="demo",
+        provider="software",
+        created_at="2020-01-01T00:00:00+00:00",
+        public_key_path=str(key_dir / "demo.pub"),
+        private_key_path=str(key_dir / "demo"),
+        comment="demo@secretive-x",
+        resident=False,
+        application=None,
+    )
+    save_manifest(manifest_path, {"demo": record})
+
+    result = runner.invoke(cli.app, ["scan", "--prune-missing", "--yes", "--json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["apply"]["prune_missing"]["pruned_count"] == 1
+    assert payload["apply"]["prune_missing"]["pruned"][0]["name"] == "demo"
+    records = load_manifest(manifest_path)
+    assert records == {}
+
+
+def test_scan_prune_invalid_paths_removes_entries(monkeypatch, tmp_path) -> None:
+    key_dir = tmp_path / "keys"
+    key_dir.mkdir()
+    manifest_path = tmp_path / "keys.json"
+    cfg = Config(
+        config_path=tmp_path / "config.json",
+        key_dir=key_dir,
+        manifest_path=manifest_path,
+    )
+    monkeypatch.setattr(cli, "load_config", lambda: cfg)
+
+    from secretive_x.store import KeyRecord, load_manifest, save_manifest
+
+    record = KeyRecord(
+        name="demo",
+        provider="software",
+        created_at="2020-01-01T00:00:00+00:00",
+        public_key_path="/tmp/demo.pub",
+        private_key_path="/tmp/demo",
+        comment="demo@secretive-x",
+        resident=False,
+        application=None,
+    )
+    save_manifest(manifest_path, {"demo": record})
+
+    result = runner.invoke(cli.app, ["scan", "--prune-invalid-paths", "--yes", "--json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["apply"]["prune_invalid_paths"]["pruned_count"] == 1
+    assert payload["apply"]["prune_invalid_paths"]["pruned"][0]["name"] == "demo"
+    records = load_manifest(manifest_path)
+    assert records == {}

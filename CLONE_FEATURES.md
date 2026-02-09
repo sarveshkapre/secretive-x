@@ -8,12 +8,17 @@
 - GitHub Actions failure runs (`ci` workflow)
 
 ## Candidate Features To Do
+- [ ] P0 (cycle 4) Add `scan --prune-missing` to remove manifest entries that reference missing key files (prompt by default; `--yes` for non-interactive; JSON reporting).
+- [ ] P0 (cycle 4) Add `scan --prune-invalid-paths` to remove manifest entries whose paths are invalid/outside the configured key dir (prompt by default; `--yes` for non-interactive; JSON reporting).
+- [ ] P1 (cycle 4) Add `--output` + `--force` for JSON-producing commands (`doctor`, `scan`, `list`) to support automation without shell redirects.
+- [ ] P2 Add audit export (`JSON`/`CSV`) for key inventory and lifecycle events.
+- [ ] P2 Add resident key import workflow for FIDO2 keys (wrap `ssh-keygen -K`, import into key dir + manifest).
+- [ ] P2 Add safe cleanup for on-disk orphans (`scan --cleanup-orphans` with `--dry-run` and `--yes`).
 - [ ] P0 Implement Secure Enclave provider flow on macOS (create/list/delete parity with current providers).
 - [ ] P0 Implement TPM provider flow for Linux/Windows.
 - [ ] P1 Add resident key enumeration/removal commands for FIDO2 hardware keys.
 - [ ] P1 Add policy profiles/presets for org rollouts on top of `allowed_providers` + `name_pattern`.
 - [ ] P1 Add SSH agent integration guidance/commands for key caching workflows.
-- [ ] P2 Add audit export (`JSON`/`CSV`) for key inventory and lifecycle events.
 - [ ] P2 Add a provider plugin interface (or internal abstraction) to keep Secure Enclave/TPM additions isolated.
 
 ### Scoring Lens (selected items)
