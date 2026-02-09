@@ -1,6 +1,8 @@
 # CHANGELOG
 
 ## Unreleased
+- Add destructive `scan` prune modes to remove invalid manifest entries: `scan --prune-missing` (entries with missing key files) and `scan --prune-invalid-paths` (untrusted/out-of-dir paths).
+- Add `--output` + `--force` support for JSON-producing commands (`doctor`, `list`, `scan`) to write machine-readable output to files without shell redirects.
 - Add `scan` command to detect drift between manifest and key directory and optionally import untracked on-disk keypairs (`scan --apply`), with `--json` output for automation.
 - Harden config/manifest atomic writes with best-effort POSIX permissions (`0600` files, `0700` dirs) and ensure key dir uses secure permissions when created.
 - Expand CI with a cross-platform smoke job (ubuntu/macos/windows) for basic CLI runtime coverage.

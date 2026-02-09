@@ -1,3 +1,15 @@
+# Update (2026-02-09, cycle 4)
+
+## Shipped
+- Drift cleanup: added destructive `scan` prune modes to remove invalid manifest entries (`scan --prune-missing`, `scan --prune-invalid-paths`).
+- Automation: added `--output` + `--force` support for JSON-producing commands (`doctor`, `list`, `scan`) to write results to files without shell redirects.
+
+## Verification
+```bash
+make check
+gh run watch 21836488654 --exit-status
+```
+
 # Update (2026-02-09, cycle 3)
 
 ## Shipped

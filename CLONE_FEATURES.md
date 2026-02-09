@@ -8,9 +8,6 @@
 - GitHub Actions failure runs (`ci` workflow)
 
 ## Candidate Features To Do
-- [ ] P0 (cycle 4) Add `scan --prune-missing` to remove manifest entries that reference missing key files (prompt by default; `--yes` for non-interactive; JSON reporting).
-- [ ] P0 (cycle 4) Add `scan --prune-invalid-paths` to remove manifest entries whose paths are invalid/outside the configured key dir (prompt by default; `--yes` for non-interactive; JSON reporting).
-- [ ] P1 (cycle 4) Add `--output` + `--force` for JSON-producing commands (`doctor`, `scan`, `list`) to support automation without shell redirects.
 - [ ] P2 Add audit export (`JSON`/`CSV`) for key inventory and lifecycle events.
 - [ ] P2 Add resident key import workflow for FIDO2 keys (wrap `ssh-keygen -K`, import into key dir + manifest).
 - [ ] P2 Add safe cleanup for on-disk orphans (`scan --cleanup-orphans` with `--dry-run` and `--yes`).
@@ -26,6 +23,10 @@
 - POSIX permission hardening: impact medium | effort low | fit high | differentiation low | risk low | confidence medium
 
 ## Implemented
+- [x] 2026-02-09: Add destructive `scan` prune modes for drift cleanup: `--prune-missing` (removes manifest entries that reference missing key files) and `--prune-invalid-paths` (removes entries with invalid/untrusted paths).  
+  Evidence: `src/secretive_x/cli.py`, `tests/test_cli.py`.
+- [x] 2026-02-09: Add `--output` + `--force` support for JSON-producing commands (`doctor`, `list`, `scan`) to write machine-readable output to files without shell redirects.  
+  Evidence: `src/secretive_x/cli.py`, `tests/test_cli.py`, `README.md`.
 - [x] 2026-02-09: Add `scan` command to detect manifest/key-dir drift and optionally import untracked on-disk keypairs into the manifest (`--apply`), with `--json` output for automation.  
   Evidence: `src/secretive_x/cli.py`, `tests/test_cli.py`, `README.md`, `CHANGELOG.md`.
 - [x] 2026-02-09: Harden atomic writes and directory creation with best-effort POSIX permissions (`0600` files, `0700` dirs) and ensure key dir uses secure permissions when created.  

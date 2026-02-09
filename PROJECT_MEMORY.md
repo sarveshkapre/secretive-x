@@ -2,6 +2,24 @@
 
 ## Decisions
 
+### 2026-02-09: Add `scan` prune modes for drift cleanup
+- Decision: Added destructive `scan` prune flags to remove invalid manifest entries: `--prune-missing` (entries referencing missing key files) and `--prune-invalid-paths` (entries with invalid/untrusted paths).
+- Why: Drift is common and can leave the manifest with entries that will never work (missing files) or are actively unsafe (paths outside the configured key dir); pruning provides an explicit, auditable cleanup path.
+- Evidence: `src/secretive_x/cli.py`, `tests/test_cli.py`.
+- Commit: `3d28c7e`.
+- Confidence: high.
+- Trust label: verified-local-tests-and-ci.
+- Follow-ups: consider adding a `--dry-run` summary for prune operations in human output mode.
+
+### 2026-02-09: Add `--output` for JSON-producing commands
+- Decision: Added `--output` + `--force` for `doctor`, `list`, and `scan` when `--json` is enabled to write machine-readable output to a file without shell redirects.
+- Why: Automation and scripts frequently need stable JSON artifacts; file output avoids fragile redirect logic and makes pipelines more explicit.
+- Evidence: `src/secretive_x/cli.py`, `tests/test_cli.py`, `README.md`.
+- Commit: `d18d4d3`.
+- Confidence: high.
+- Trust label: verified-local-tests-and-ci.
+- Follow-ups: consider adding `--output` parity to other JSON-producing commands (`info`, `version`, `init`, etc.).
+
 ### 2026-02-09: Enforce config policy guardrails at create-time
 - Decision: Added `allowed_providers` and `name_pattern` fields in `config.json` and enforced them in `create` before key generation.
 - Why: Teams need policy-level control for provider usage and naming; enforcing before shelling out prevents invalid key creation attempts.
@@ -76,6 +94,8 @@
 
 ## Verification Evidence
 - `make check` (pass)
+- `gh run watch 21836306296 --exit-status` (pass; ci workflow on `main`)
+- `gh run watch 21836488654 --exit-status` (pass; ci workflow on `main`)
 - `PYTHONPATH=src .venv/bin/python scripts/smoke_cli.py` (pass)
 - `gh run view 21819876084 --json conclusion,status,headSha,url` (pass; conclusion: success)
 - `gh run watch 21819955705 --exit-status` (pass; ci workflow on `main`)

@@ -46,6 +46,16 @@ Scan for drift between the manifest and key directory (and optionally import unt
 ```bash
 python3 -m secretive_x.cli scan
 python3 -m secretive_x.cli scan --apply
+python3 -m secretive_x.cli scan --prune-missing
+python3 -m secretive_x.cli scan --prune-invalid-paths
+```
+
+Write machine-readable output to a file (no shell redirects needed):
+
+```bash
+python3 -m secretive_x.cli doctor --json --output doctor.json
+python3 -m secretive_x.cli list --json --output keys.json
+python3 -m secretive_x.cli scan --json --output drift.json
 ```
 
 Create a FIDO2-backed key:
