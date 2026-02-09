@@ -212,6 +212,35 @@ def create(
     except (ValueError, ConfigError) as exc:
         _fail(str(exc), json_output=json_output, code=2)
 
+    if provider == Provider.software and (resident or application is not None):
+        _fail(
+            "--resident/--application are only supported for --provider fido2.",
+            json_output=json_output,
+            code=2,
+        )
+    if provider == Provider.fido2 and (passphrase is not None or no_passphrase or rounds != 64):
+        _fail(
+            "--passphrase/--no-passphrase/--rounds are only supported for --provider software.",
+            json_output=json_output,
+            code=2,
+        )
+
+    if not check_ssh_keygen():
+        _fail(
+            "ssh-keygen was not found on PATH. Install OpenSSH (with FIDO2 support) and try again.",
+            json_output=json_output,
+            code=1,
+        )
+    if provider == Provider.fido2:
+        fido2_support = ssh_supports_key_type("sk-ssh-ed25519@openssh.com")
+        if fido2_support is False:
+            _fail(
+                "Your OpenSSH does not advertise FIDO2 key support for ed25519-sk. "
+                "Upgrade OpenSSH and verify `ssh -Q key` includes 'sk-ssh-ed25519@openssh.com'.",
+                json_output=json_output,
+                code=1,
+            )
+
     if provider == Provider.software:
         if passphrase and no_passphrase:
             _fail(

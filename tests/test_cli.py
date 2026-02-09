@@ -158,6 +158,8 @@ def test_list_json_provider_filter(monkeypatch) -> None:
 
 def test_create_json(monkeypatch) -> None:
     monkeypatch.setattr(cli, "validate_name", lambda n: n)
+    monkeypatch.setattr(cli, "check_ssh_keygen", lambda: True)
+    monkeypatch.setattr(cli, "ssh_supports_key_type", lambda _: True)
     monkeypatch.setattr(
         cli,
         "load_config",
@@ -174,8 +176,87 @@ def test_create_json(monkeypatch) -> None:
     assert payload["created"]["name"] == "demo"
 
 
+def test_create_fails_when_ssh_keygen_missing(monkeypatch) -> None:
+    monkeypatch.setattr(cli, "validate_name", lambda n: n)
+    monkeypatch.setattr(cli, "check_ssh_keygen", lambda: False)
+    monkeypatch.setattr(
+        cli,
+        "load_config",
+        lambda: Config(
+            config_path=Path("/tmp/config.json"),
+            key_dir=Path("/tmp/keys"),
+            manifest_path=Path("/tmp/keys.json"),
+        ),
+    )
+
+    def _create_key(**kwargs):
+        raise AssertionError("create_key should not be called when ssh-keygen is missing")
+
+    monkeypatch.setattr(cli, "create_key", _create_key)
+    result = runner.invoke(cli.app, ["create", "--name", "demo"])
+    assert result.exit_code == 1
+    assert "ssh-keygen was not found" in result.stdout
+
+
+def test_create_fails_when_fido2_not_supported(monkeypatch) -> None:
+    monkeypatch.setattr(cli, "validate_name", lambda n: n)
+    monkeypatch.setattr(cli, "check_ssh_keygen", lambda: True)
+    monkeypatch.setattr(cli, "ssh_supports_key_type", lambda _: False)
+    monkeypatch.setattr(
+        cli,
+        "load_config",
+        lambda: Config(
+            config_path=Path("/tmp/config.json"),
+            key_dir=Path("/tmp/keys"),
+            manifest_path=Path("/tmp/keys.json"),
+        ),
+    )
+
+    def _create_key(**kwargs):
+        raise AssertionError("create_key should not be called when fido2 is unsupported")
+
+    monkeypatch.setattr(cli, "create_key", _create_key)
+    result = runner.invoke(cli.app, ["create", "--name", "demo", "--provider", "fido2"])
+    assert result.exit_code == 1
+    assert "does not advertise FIDO2 key support" in result.stdout
+
+
+def test_create_rejects_resident_for_software(monkeypatch) -> None:
+    monkeypatch.setattr(cli, "validate_name", lambda n: n)
+    monkeypatch.setattr(cli, "check_ssh_keygen", lambda: True)
+    monkeypatch.setattr(
+        cli,
+        "load_config",
+        lambda: Config(
+            config_path=Path("/tmp/config.json"),
+            key_dir=Path("/tmp/keys"),
+            manifest_path=Path("/tmp/keys.json"),
+        ),
+    )
+
+    def _create_key(**kwargs):
+        raise AssertionError("create_key should not be called for invalid option combos")
+
+    monkeypatch.setattr(cli, "create_key", _create_key)
+    result = runner.invoke(
+        cli.app,
+        [
+            "create",
+            "--name",
+            "demo",
+            "--provider",
+            "software",
+            "--resident",
+            "--no-passphrase",
+        ],
+    )
+    assert result.exit_code == 2
+    assert "only supported for --provider fido2" in result.stdout
+
+
 def test_create_rejects_disallowed_provider_policy(monkeypatch) -> None:
     monkeypatch.setattr(cli, "validate_name", lambda n: n)
+    monkeypatch.setattr(cli, "check_ssh_keygen", lambda: True)
     monkeypatch.setattr(
         cli,
         "load_config",
@@ -200,6 +281,8 @@ def test_create_rejects_disallowed_provider_policy(monkeypatch) -> None:
 
 def test_create_rejects_name_pattern_policy(monkeypatch) -> None:
     monkeypatch.setattr(cli, "validate_name", lambda n: n)
+    monkeypatch.setattr(cli, "check_ssh_keygen", lambda: True)
+    monkeypatch.setattr(cli, "ssh_supports_key_type", lambda _: True)
     monkeypatch.setattr(
         cli,
         "load_config",
