@@ -139,6 +139,19 @@ def test_list_json(monkeypatch) -> None:
     assert "private_key_path" in payload["keys"][0]
 
 
+def test_list_json_output_file(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(cli, "list_keys", lambda: [_record(), _record(resident=True)])
+    target = tmp_path / "keys.json"
+    result = runner.invoke(cli.app, ["list", "--json", "--output", str(target)])
+    assert result.exit_code == 0
+    meta = json.loads(result.stdout)
+    assert meta["command"] == "list"
+    assert meta["keys_count"] == 2
+    assert meta["output_path"].endswith("keys.json")
+    payload = json.loads(target.read_text())
+    assert len(payload["keys"]) == 2
+
+
 def test_list_json_provider_filter(monkeypatch) -> None:
     monkeypatch.setattr(
         cli,
@@ -418,6 +431,39 @@ def test_doctor_json(monkeypatch) -> None:
     assert payload["drift"]["invalid_manifest_paths"] == []
 
 
+def test_doctor_json_output_file(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(cli, "check_ssh_keygen", lambda: True)
+    monkeypatch.setattr(cli, "get_ssh_version", lambda: "OpenSSH_9.9")
+    monkeypatch.setattr(cli, "ssh_supports_key_type", lambda _: True)
+    monkeypatch.setattr(
+        cli,
+        "default_config",
+        lambda: Config(
+            config_path=tmp_path / "config.json",
+            key_dir=tmp_path / "keys",
+            manifest_path=tmp_path / "keys.json",
+        ),
+    )
+    monkeypatch.setattr(
+        cli,
+        "load_config",
+        lambda: Config(
+            config_path=tmp_path / "config.json",
+            key_dir=tmp_path / "keys",
+            manifest_path=tmp_path / "keys.json",
+        ),
+    )
+    monkeypatch.setattr(cli, "load_manifest", lambda _: {})
+    target = tmp_path / "doctor.json"
+    result = runner.invoke(cli.app, ["doctor", "--json", "--output", str(target)])
+    assert result.exit_code == 0
+    meta = json.loads(result.stdout)
+    assert meta["command"] == "doctor"
+    assert meta["output_path"].endswith("doctor.json")
+    payload = json.loads(target.read_text())
+    assert payload["ssh_keygen"] is True
+
+
 def test_doctor_invalid_manifest_paths_exits_nonzero(monkeypatch, tmp_path) -> None:
     key_dir = tmp_path / "keys"
     key_dir.mkdir()
@@ -496,6 +542,30 @@ def test_scan_reports_untracked_pairs(monkeypatch, tmp_path) -> None:
     result = runner.invoke(cli.app, ["scan", "--json"])
     assert result.exit_code == 1
     payload = json.loads(result.stdout)
+    assert payload["drift"]["key_dir_untracked_pairs"] == ["demo"]
+
+
+def test_scan_json_output_file(monkeypatch, tmp_path) -> None:
+    key_dir = tmp_path / "keys"
+    key_dir.mkdir()
+    manifest_path = tmp_path / "keys.json"
+    manifest_path.write_text("{\"version\": 1, \"keys\": {}}")
+    (key_dir / "demo").write_text("priv")
+    (key_dir / "demo.pub").write_text("ssh-ed25519 AAAA demo\n")
+    cfg = Config(
+        config_path=tmp_path / "config.json",
+        key_dir=key_dir,
+        manifest_path=manifest_path,
+    )
+    monkeypatch.setattr(cli, "load_config", lambda: cfg)
+
+    target = tmp_path / "scan.json"
+    result = runner.invoke(cli.app, ["scan", "--json", "--output", str(target)])
+    assert result.exit_code == 1
+    meta = json.loads(result.stdout)
+    assert meta["command"] == "scan"
+    assert meta["drift_present"] is True
+    payload = json.loads(target.read_text())
     assert payload["drift"]["key_dir_untracked_pairs"] == ["demo"]
 
 

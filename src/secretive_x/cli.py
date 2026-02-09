@@ -61,8 +61,23 @@ PRUNE_INVALID_PATHS_OPTION = typer.Option(
 )
 
 
+def _json_text(payload: object) -> str:
+    return json.dumps(payload, indent=2, sort_keys=True)
+
+
 def _print_json(payload: object) -> None:
-    typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+    typer.echo(_json_text(payload))
+
+
+def _write_json_output(
+    payload: object, *, output: Path, force: bool, meta: dict[str, object]
+) -> None:
+    if output.exists() and not force:
+        _fail(f"Output file exists: {output}", json_output=True, code=2)
+    atomic_write_text(output, _json_text(payload) + "\n")
+    meta_payload = dict(meta)
+    meta_payload["output_path"] = str(output)
+    _print_json(meta_payload)
 
 
 def _record_to_json(record: KeyRecord) -> dict[str, object]:
@@ -214,8 +229,15 @@ def init(
 
 
 @app.command()
-def doctor(json_output: bool = JSON_OPTION) -> None:
+def doctor(
+    json_output: bool = JSON_OPTION,
+    output: Path = OUTPUT_OPTION,
+    force: bool = FORCE_OUTPUT_OPTION,
+) -> None:
     """Check local prerequisites."""
+    if output and not json_output:
+        _fail("Use --json with --output.", json_output=False, code=2)
+
     has_keygen = check_ssh_keygen()
     version = get_ssh_version()
     fido2_support = ssh_supports_key_type("sk-ssh-ed25519@openssh.com")
@@ -282,37 +304,39 @@ def doctor(json_output: bool = JSON_OPTION) -> None:
         key_dir_orphan_public_keys = sorted(set(key_dir_orphan_public_keys))
 
     if json_output:
-        _print_json(
-            {
-                "ssh_keygen": has_keygen,
-                "ssh_version": version,
-                "fido2_key_type_support": fido2_support,
-                "config": {
-                    "exists": config_exists,
-                    "path": str(cfg_default.config_path),
-                    "valid": config_error is None,
-                    "error": config_error,
-                },
-                "key_dir": {
-                    "path": str(config.key_dir),
-                    "exists": key_dir_exists,
-                    "is_dir": key_dir_is_dir,
-                },
-                "manifest": {
-                    "exists": manifest_exists,
-                    "path": str(config.manifest_path),
-                    "valid": manifest_error is None,
-                    "error": manifest_error,
-                },
-                "drift": {
-                    "computed": drift_computed,
-                    "invalid_manifest_paths": invalid_manifest_paths,
-                    "manifest_entries_missing_files": manifest_entries_missing_files,
-                    "key_dir_untracked_pairs": key_dir_untracked_pairs,
-                    "key_dir_orphan_public_keys": key_dir_orphan_public_keys,
-                },
-            }
-        )
+        payload = {
+            "ssh_keygen": has_keygen,
+            "ssh_version": version,
+            "fido2_key_type_support": fido2_support,
+            "config": {
+                "exists": config_exists,
+                "path": str(cfg_default.config_path),
+                "valid": config_error is None,
+                "error": config_error,
+            },
+            "key_dir": {
+                "path": str(config.key_dir),
+                "exists": key_dir_exists,
+                "is_dir": key_dir_is_dir,
+            },
+            "manifest": {
+                "exists": manifest_exists,
+                "path": str(config.manifest_path),
+                "valid": manifest_error is None,
+                "error": manifest_error,
+            },
+            "drift": {
+                "computed": drift_computed,
+                "invalid_manifest_paths": invalid_manifest_paths,
+                "manifest_entries_missing_files": manifest_entries_missing_files,
+                "key_dir_untracked_pairs": key_dir_untracked_pairs,
+                "key_dir_orphan_public_keys": key_dir_orphan_public_keys,
+            },
+        }
+        if output:
+            _write_json_output(payload, output=output, force=force, meta={"command": "doctor"})
+        else:
+            _print_json(payload)
     else:
         console.print(f"ssh-keygen: {'OK' if has_keygen else 'MISSING'}")
         console.print(f"ssh version: {version or 'unknown'}")
@@ -369,8 +393,13 @@ def scan(
     prune_invalid_paths: bool = PRUNE_INVALID_PATHS_OPTION,
     yes: bool = YES_OPTION,
     json_output: bool = JSON_OPTION,
+    output: Path = OUTPUT_OPTION,
+    force: bool = FORCE_OUTPUT_OPTION,
 ) -> None:
     """Scan for drift between the manifest and on-disk key directory and optionally repair it."""
+    if output and not json_output:
+        _fail("Use --json with --output.", json_output=False, code=2)
+
     try:
         config = load_config()
         records = load_manifest(config.manifest_path)
@@ -495,35 +524,42 @@ def scan(
     )
 
     if json_output:
-        _print_json(
-            {
-                "key_dir": str(config.key_dir),
-                "manifest_path": str(config.manifest_path),
-                "apply": {
-                    "requested": apply,
-                    "imported_count": len(imported),
-                    "imported": imported,
-                    "skipped": skipped_imports,
-                    "prune_missing": {
-                        "requested": prune_missing,
-                        "pruned_count": len(pruned_missing),
-                        "pruned": pruned_missing,
-                    },
-                    "prune_invalid_paths": {
-                        "requested": prune_invalid_paths,
-                        "pruned_count": len(pruned_invalid),
-                        "pruned": pruned_invalid,
-                    },
+        payload = {
+            "key_dir": str(config.key_dir),
+            "manifest_path": str(config.manifest_path),
+            "apply": {
+                "requested": apply,
+                "imported_count": len(imported),
+                "imported": imported,
+                "skipped": skipped_imports,
+                "prune_missing": {
+                    "requested": prune_missing,
+                    "pruned_count": len(pruned_missing),
+                    "pruned": pruned_missing,
                 },
-                "drift": {
-                    "invalid_manifest_paths": invalid_manifest_paths,
-                    "manifest_entries_missing_files": manifest_entries_missing_files,
-                    "key_dir_untracked_pairs": key_dir_untracked_pairs,
-                    "key_dir_orphan_public_keys": key_dir_orphan_public_keys,
-                    "key_dir_orphan_private_keys": key_dir_orphan_private_keys,
+                "prune_invalid_paths": {
+                    "requested": prune_invalid_paths,
+                    "pruned_count": len(pruned_invalid),
+                    "pruned": pruned_invalid,
                 },
-            }
-        )
+            },
+            "drift": {
+                "invalid_manifest_paths": invalid_manifest_paths,
+                "manifest_entries_missing_files": manifest_entries_missing_files,
+                "key_dir_untracked_pairs": key_dir_untracked_pairs,
+                "key_dir_orphan_public_keys": key_dir_orphan_public_keys,
+                "key_dir_orphan_private_keys": key_dir_orphan_private_keys,
+            },
+        }
+        if output:
+            _write_json_output(
+                payload,
+                output=output,
+                force=force,
+                meta={"command": "scan", "drift_present": drift_present},
+            )
+        else:
+            _print_json(payload)
     else:
         console.print(f"key dir: {config.key_dir}")
         console.print(f"manifest: {config.manifest_path}")
@@ -643,8 +679,13 @@ def create(
 def list_cmd(
     provider: Provider = LIST_PROVIDER_OPTION,
     json_output: bool = JSON_OPTION,
+    output: Path = OUTPUT_OPTION,
+    force: bool = FORCE_OUTPUT_OPTION,
 ) -> None:
     """List known keys."""
+    if output and not json_output:
+        _fail("Use --json with --output.", json_output=False, code=2)
+
     try:
         records = list_keys()
     except (ConfigError, ManifestError) as exc:
@@ -654,7 +695,16 @@ def list_cmd(
         records = [record for record in records if record.provider == provider.value]
 
     if json_output:
-        _print_json({"keys": [_record_to_json(record) for record in records]})
+        payload = {"keys": [_record_to_json(record) for record in records]}
+        if output:
+            _write_json_output(
+                payload,
+                output=output,
+                force=force,
+                meta={"command": "list", "keys_count": len(records)},
+            )
+        else:
+            _print_json(payload)
         return
 
     if not records:
