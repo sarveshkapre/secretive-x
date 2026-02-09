@@ -1,3 +1,17 @@
+# Update (2026-02-09)
+
+## Shipped
+- CI reliability: fixed GitHub Actions `gitleaks` job to fetch full git history (`fetch-depth: 0`) and removed unsupported action input arguments.
+- Python 3.11 compatibility hardening: updated CLI option type annotations to avoid Typer runtime failures on optional union annotations.
+- Product UX: added `list --provider` filtering and deterministic key ordering for both human and JSON output.
+- Reliability: added explicit config and manifest schema validation with actionable error messages for malformed root/field shapes.
+- Test coverage: added regression tests for command help parsing, provider filtering, and malformed config/manifest schema paths.
+
+## Verification
+```bash
+PATH="$(pwd)/.venv/bin:$PATH" make check
+```
+
 # Update (2026-02-01)
 
 ## Shipped

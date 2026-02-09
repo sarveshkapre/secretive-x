@@ -1,6 +1,12 @@
 # CHANGELOG
 
 ## Unreleased
+- Fix CLI compatibility for Python 3.11/Typer by avoiding unsupported optional union option annotations.
+- Add `list --provider` filtering and deterministic key ordering for table/JSON output.
+- Harden config parsing with explicit schema/type validation and actionable `ConfigError` messages.
+- Harden manifest parsing with explicit root/`keys`/entry shape validation and actionable `ManifestError` messages.
+- Add regression tests for malformed config/manifest schemas, list provider filtering, and command help paths.
+- Stabilize CI secret scanning by running `gitleaks` with full git history (`fetch-depth: 0`) and removing unsupported action inputs.
 - Add a confirmation prompt to `delete` (with `--yes/-y` to skip).
 - Improve `doctor` output by reporting FIDO2 key type support and local config/manifest health when detectable.
 - Add `--json` output mode to most commands for automation (`init`, `doctor`, `list`, `info`, `create`, `pubkey`, `ssh-config`, `delete`).

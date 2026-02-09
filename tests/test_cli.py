@@ -12,14 +12,14 @@ from secretive_x.store import KeyRecord, ManifestError
 runner = CliRunner()
 
 
-def _record(*, resident: bool = False) -> KeyRecord:
+def _record(*, name: str = "demo", provider: str = "fido2", resident: bool = False) -> KeyRecord:
     return KeyRecord(
-        name="demo",
-        provider="fido2",
+        name=name,
+        provider=provider,
         created_at="2020-01-01T00:00:00+00:00",
-        public_key_path="/tmp/demo.pub",
-        private_key_path="/tmp/demo",
-        comment="demo@secretive-x",
+        public_key_path=f"/tmp/{name}.pub",
+        private_key_path=f"/tmp/{name}",
+        comment=f"{name}@secretive-x",
         resident=resident,
         application=None,
     )
@@ -56,6 +56,12 @@ def test_help_does_not_crash() -> None:
     result = runner.invoke(cli.app, ["--help"])
     assert result.exit_code == 0
     assert "create" in result.stdout
+
+
+def test_command_help_for_optional_params() -> None:
+    for cmd in (["create", "--help"], ["pubkey", "--help"], ["ssh-config", "--help"]):
+        result = runner.invoke(cli.app, cmd)
+        assert result.exit_code == 0
 
 
 def test_init_json_status_created(monkeypatch, tmp_path) -> None:
@@ -131,6 +137,23 @@ def test_list_json(monkeypatch) -> None:
     payload = json.loads(result.stdout)
     assert payload["keys"][0]["name"] == "demo"
     assert "private_key_path" in payload["keys"][0]
+
+
+def test_list_json_provider_filter(monkeypatch) -> None:
+    monkeypatch.setattr(
+        cli,
+        "list_keys",
+        lambda: [
+            _record(name="c", provider="fido2"),
+            _record(name="a", provider="fido2"),
+            _record(name="b", provider="software"),
+        ],
+    )
+    result = runner.invoke(cli.app, ["list", "--json", "--provider", "fido2"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert [key["name"] for key in payload["keys"]] == ["a", "c"]
+    assert all(key["provider"] == "fido2" for key in payload["keys"])
 
 
 def test_create_json(monkeypatch) -> None:

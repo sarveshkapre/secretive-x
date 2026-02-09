@@ -7,6 +7,7 @@ Status: **MVP (v0.1.0 target)** — FIDO2-backed keys are supported. Secure Encl
 ## Features
 - FIDO2-backed SSH keys via `ssh-keygen -t ed25519-sk`
 - Local key inventory with metadata and integrity checks
+- Provider filtering for key inventory (`list --provider`)
 - Safe defaults (key naming validation, no overwrites, secure key directory)
 - Provider-aware workflow and clear error reporting
 - One-command diagnostics (`doctor`)
@@ -36,6 +37,12 @@ List keys:
 
 ```bash
 python3 -m secretive_x.cli list
+```
+
+List only software-backed keys:
+
+```bash
+python3 -m secretive_x.cli list --provider software
 ```
 
 Show public key:

@@ -34,5 +34,6 @@ make check
 - UX: `pubkey` and `ssh-config` can now write to files with `--output` and `--force`.
 
 ## Next to ship
-- Polish: structured output modes (`--json`) for automation (`list`, `doctor`, `info`).
-- Reliability: handle malformed manifest/config with actionable errors.
+- Provider support: Secure Enclave (macOS) and TPM (Linux/Windows).
+- Key lifecycle: resident key enumeration/removal flow for FIDO2 devices.
+- Policy guardrails: enforce org naming/provider policy in config.

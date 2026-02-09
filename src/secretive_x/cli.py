@@ -46,6 +46,7 @@ YES_OPTION = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt."
 JSON_OPTION = typer.Option(False, "--json", help="Output machine-readable JSON.")
 OUTPUT_OPTION = typer.Option(None, "--output", help="Write output to file.")
 FORCE_OUTPUT_OPTION = typer.Option(False, "--force", help="Overwrite output file.")
+LIST_PROVIDER_OPTION = typer.Option(None, "--provider", help="Filter by provider.")
 
 
 def _print_json(payload: object) -> None:
@@ -195,10 +196,10 @@ def doctor(json_output: bool = JSON_OPTION) -> None:
 def create(
     name: str = NAME_OPTION,
     provider: Provider = PROVIDER_OPTION,
-    comment: str | None = COMMENT_OPTION,
+    comment: str = COMMENT_OPTION,
     resident: bool = RESIDENT_OPTION,
-    application: str | None = APPLICATION_OPTION,
-    passphrase: str | None = PASSPHRASE_OPTION,
+    application: str = APPLICATION_OPTION,
+    passphrase: str = PASSPHRASE_OPTION,
     no_passphrase: bool = NO_PASSPHRASE_OPTION,
     rounds: int = ROUNDS_OPTION,
     json_output: bool = JSON_OPTION,
@@ -249,26 +250,21 @@ def create(
 
 
 @app.command(name="list")
-def list_cmd(json_output: bool = JSON_OPTION) -> None:
+def list_cmd(
+    provider: Provider = LIST_PROVIDER_OPTION,
+    json_output: bool = JSON_OPTION,
+) -> None:
     """List known keys."""
     try:
         records = list_keys()
     except (ConfigError, ManifestError) as exc:
         _fail(str(exc), json_output=json_output, code=2)
-    if json_output:
-        def _as_dict(record):
-            return {
-                "application": record.application,
-                "comment": record.comment,
-                "created_at": record.created_at,
-                "name": record.name,
-                "private_key_path": record.private_key_path,
-                "provider": record.provider,
-                "public_key_path": record.public_key_path,
-                "resident": record.resident,
-            }
+    records = sorted(records, key=lambda r: r.name)
+    if provider is not None:
+        records = [record for record in records if record.provider == provider.value]
 
-        _print_json({"keys": [_as_dict(r) for r in sorted(records, key=lambda r: r.name)]})
+    if json_output:
+        _print_json({"keys": [_record_to_json(record) for record in records]})
         return
 
     if not records:
@@ -298,7 +294,7 @@ def list_cmd(json_output: bool = JSON_OPTION) -> None:
 def pubkey(
     name: str,
     json_output: bool = JSON_OPTION,
-    output: Path | None = OUTPUT_OPTION,
+    output: Path = OUTPUT_OPTION,
     force: bool = FORCE_OUTPUT_OPTION,
 ) -> None:
     """Print the public key for a named key."""
@@ -375,7 +371,7 @@ def ssh_config(
     name: str,
     host: str = HOST_OPTION,
     json_output: bool = JSON_OPTION,
-    output: Path | None = OUTPUT_OPTION,
+    output: Path = OUTPUT_OPTION,
     force: bool = FORCE_OUTPUT_OPTION,
 ) -> None:
     """Emit an SSH config snippet for a key."""

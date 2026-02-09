@@ -84,3 +84,19 @@ def test_init_config_invalid_json_with_force_recovers(tmp_path, monkeypatch) -> 
     cfg = init_config(force=True)
     assert isinstance(cfg.config_path, Path)
     assert cfg.config_path.exists()
+
+
+def test_load_config_invalid_root_schema(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("secretive_x.config.user_config_path", lambda _: tmp_path)
+    (tmp_path / "config.json").write_text("[]")
+    with pytest.raises(ConfigError, match="expected object root"):
+        load_config()
+
+
+def test_load_config_invalid_path_types(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("secretive_x.config.user_config_path", lambda _: tmp_path)
+    (tmp_path / "config.json").write_text(
+        json.dumps({"version": 1, "key_dir": 123, "manifest_path": []})
+    )
+    with pytest.raises(ConfigError, match="key_dir must be a string"):
+        load_config()

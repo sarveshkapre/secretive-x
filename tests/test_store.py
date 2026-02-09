@@ -36,3 +36,24 @@ def test_manifest_invalid_schema(tmp_path: Path) -> None:
     manifest.write_text(json.dumps({"version": 1, "keys": {"demo": {"name": "demo"}}}))
     with pytest.raises(ManifestError):
         load_manifest(manifest)
+
+
+def test_manifest_invalid_root_schema(tmp_path: Path) -> None:
+    manifest = tmp_path / "keys.json"
+    manifest.write_text("[]")
+    with pytest.raises(ManifestError, match="expected object root"):
+        load_manifest(manifest)
+
+
+def test_manifest_invalid_keys_shape(tmp_path: Path) -> None:
+    manifest = tmp_path / "keys.json"
+    manifest.write_text(json.dumps({"version": 1, "keys": []}))
+    with pytest.raises(ManifestError, match="keys must be an object"):
+        load_manifest(manifest)
+
+
+def test_manifest_invalid_entry_shape(tmp_path: Path) -> None:
+    manifest = tmp_path / "keys.json"
+    manifest.write_text(json.dumps({"version": 1, "keys": {"demo": []}}))
+    with pytest.raises(ManifestError, match="entry 'demo' must be an object"):
+        load_manifest(manifest)

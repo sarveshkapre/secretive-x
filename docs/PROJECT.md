@@ -10,6 +10,7 @@ pip install -r requirements-dev.txt
 ## Dev
 ```bash
 PYTHONPATH=src python3 -m secretive_x.cli --help
+PYTHONPATH=src python3 -m secretive_x.cli list --provider fido2 --json
 ```
 
 ## Test

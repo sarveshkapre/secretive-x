@@ -38,10 +38,22 @@ def load_config() -> Config:
         data = json.loads(cfg.config_path.read_text())
     except json.JSONDecodeError as exc:
         raise ConfigError(f"Invalid JSON in config file: {cfg.config_path}") from exc
+    if not isinstance(data, dict):
+        raise ConfigError(f"Invalid config schema: {cfg.config_path} (expected object root)")
+
+    key_dir_raw = data.get("key_dir", str(cfg.key_dir))
+    manifest_path_raw = data.get("manifest_path", str(cfg.manifest_path))
+    if not isinstance(key_dir_raw, str):
+        raise ConfigError(f"Invalid config schema: {cfg.config_path} (key_dir must be a string)")
+    if not isinstance(manifest_path_raw, str):
+        raise ConfigError(
+            f"Invalid config schema: {cfg.config_path} (manifest_path must be a string)"
+        )
+
     return Config(
         config_path=cfg.config_path,
-        key_dir=Path(data.get("key_dir", cfg.key_dir)),
-        manifest_path=Path(data.get("manifest_path", cfg.manifest_path)),
+        key_dir=Path(key_dir_raw),
+        manifest_path=Path(manifest_path_raw),
     )
 
 
