@@ -1,11 +1,30 @@
-PYTHON=python3
-PYTHONPATH=src
+VENV ?= .venv
+PYTHON_BOOTSTRAP ?= python3
+PYTHONPATH := src
+
+# Prefer a local venv when present so `make check` works immediately after `make setup`
+# without requiring manual PATH manipulation.
+ifeq ($(wildcard $(VENV)/bin/python),)
+PYTHON := $(PYTHON_BOOTSTRAP)
+PIP := pip
+RUFF := ruff
+MYPY := mypy
+BANDIT := bandit
+PIP_AUDIT := pip-audit
+else
+PYTHON := $(VENV)/bin/python
+PIP := $(VENV)/bin/pip
+RUFF := $(VENV)/bin/ruff
+MYPY := $(VENV)/bin/mypy
+BANDIT := $(VENV)/bin/bandit
+PIP_AUDIT := $(VENV)/bin/pip-audit
+endif
 
 .PHONY: setup dev test lint typecheck smoke build security check release
 
 setup:
-	$(PYTHON) -m venv .venv
-	. .venv/bin/activate; pip install -r requirements-dev.txt
+	$(PYTHON_BOOTSTRAP) -m venv $(VENV)
+	$(VENV)/bin/pip install -r requirements-dev.txt
 
 dev:
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m secretive_x.cli --help
@@ -14,10 +33,10 @@ test:
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pytest
 
 lint:
-	ruff check src tests
+	$(RUFF) check src tests
 
 typecheck:
-	mypy src
+	$(MYPY) src
 
 smoke:
 	@tmp_home="$$(mktemp -d)"; \
@@ -32,8 +51,8 @@ build:
 	$(PYTHON) -m build
 
 security:
-	bandit -q -r src
-	pip-audit -r requirements.txt
+	$(BANDIT) -q -r src
+	$(PIP_AUDIT) -r requirements.txt
 
 check: lint typecheck test smoke security build
 
