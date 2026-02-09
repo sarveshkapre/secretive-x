@@ -414,6 +414,29 @@ def test_doctor_json(monkeypatch) -> None:
     assert payload["ssh_keygen"] is True
     assert payload["ssh_version"] == "OpenSSH_9.9"
     assert payload["fido2_key_type_support"] is True
+    assert "drift" in payload
+    assert payload["drift"]["invalid_manifest_paths"] == []
+
+
+def test_doctor_invalid_manifest_paths_exits_nonzero(monkeypatch, tmp_path) -> None:
+    key_dir = tmp_path / "keys"
+    key_dir.mkdir()
+    cfg = Config(
+        config_path=tmp_path / "config.json",
+        key_dir=key_dir,
+        manifest_path=tmp_path / "keys.json",
+    )
+    monkeypatch.setattr(cli, "check_ssh_keygen", lambda: True)
+    monkeypatch.setattr(cli, "get_ssh_version", lambda: "OpenSSH_9.9")
+    monkeypatch.setattr(cli, "ssh_supports_key_type", lambda _: True)
+    monkeypatch.setattr(cli, "default_config", lambda: cfg)
+    monkeypatch.setattr(cli, "load_config", lambda: cfg)
+    monkeypatch.setattr(cli, "load_manifest", lambda _: {"demo": _record(name="demo")})
+
+    result = runner.invoke(cli.app, ["doctor", "--json"])
+    assert result.exit_code == 1
+    payload = json.loads(result.stdout)
+    assert payload["drift"]["invalid_manifest_paths"][0]["name"] == "demo"
 
 
 def test_info_json(monkeypatch, tmp_path) -> None:

@@ -19,6 +19,7 @@ from .core import (
     get_key,
     list_keys,
     read_public_key,
+    resolve_record_paths,
     ssh_config_snippet,
 )
 from .ssh import SshError, check_ssh_keygen, get_ssh_version, ssh_supports_key_type
@@ -135,10 +136,52 @@ def doctor(json_output: bool = JSON_OPTION) -> None:
 
     manifest_exists = config.manifest_path.exists()
     manifest_error: str | None = None
+    manifest_records: dict[str, KeyRecord] | None = None
     try:
-        load_manifest(config.manifest_path)
+        manifest_records = load_manifest(config.manifest_path)
     except ManifestError as exc:
         manifest_error = str(exc)
+
+    drift_computed = manifest_error is None and bool(key_dir_exists and key_dir_is_dir)
+    invalid_manifest_paths: list[dict[str, str]] = []
+    manifest_entries_missing_files: list[dict[str, object]] = []
+    key_dir_untracked_pairs: list[str] = []
+    key_dir_orphan_public_keys: list[str] = []
+
+    if drift_computed:
+        records = manifest_records or {}
+        for record in records.values():
+            try:
+                key_path, pub_path = resolve_record_paths(record, key_dir=config.key_dir)
+            except ManifestError as exc:
+                invalid_manifest_paths.append({"name": record.name, "error": str(exc)})
+                continue
+
+            missing: list[str] = []
+            if not key_path.exists():
+                missing.append("private")
+            if not pub_path.exists():
+                missing.append("public")
+            if missing:
+                manifest_entries_missing_files.append({"name": record.name, "missing": missing})
+
+        try:
+            for pub_path in config.key_dir.glob("*.pub"):
+                name = pub_path.stem
+                priv_path = config.key_dir / name
+                if not priv_path.exists():
+                    key_dir_orphan_public_keys.append(name)
+                    continue
+                if name not in records:
+                    key_dir_untracked_pairs.append(name)
+        except OSError:
+            # Best-effort drift scan; prereq checks above already validate key_dir existence/type.
+            drift_computed = False
+
+        invalid_manifest_paths.sort(key=lambda item: item["name"])
+        manifest_entries_missing_files.sort(key=lambda item: str(item["name"]))
+        key_dir_untracked_pairs = sorted(set(key_dir_untracked_pairs))
+        key_dir_orphan_public_keys = sorted(set(key_dir_orphan_public_keys))
 
     if json_output:
         _print_json(
@@ -163,6 +206,13 @@ def doctor(json_output: bool = JSON_OPTION) -> None:
                     "valid": manifest_error is None,
                     "error": manifest_error,
                 },
+                "drift": {
+                    "computed": drift_computed,
+                    "invalid_manifest_paths": invalid_manifest_paths,
+                    "manifest_entries_missing_files": manifest_entries_missing_files,
+                    "key_dir_untracked_pairs": key_dir_untracked_pairs,
+                    "key_dir_orphan_public_keys": key_dir_orphan_public_keys,
+                },
             }
         )
     else:
@@ -186,9 +236,27 @@ def doctor(json_output: bool = JSON_OPTION) -> None:
         else:
             console.print(f"manifest: INVALID ({config.manifest_path})")
             console.print(manifest_error)
+        if drift_computed:
+            if (
+                not invalid_manifest_paths
+                and not manifest_entries_missing_files
+                and not key_dir_untracked_pairs
+                and not key_dir_orphan_public_keys
+            ):
+                console.print("drift: OK")
+            else:
+                console.print(
+                    "drift:"
+                    f" invalid_paths={len(invalid_manifest_paths)}"
+                    f" missing_files={len(manifest_entries_missing_files)}"
+                    f" untracked_pairs={len(key_dir_untracked_pairs)}"
+                    f" orphan_public={len(key_dir_orphan_public_keys)}"
+                )
     if not has_keygen:
         raise typer.Exit(code=1)
     if config_error is not None or manifest_error is not None:
+        raise typer.Exit(code=1)
+    if invalid_manifest_paths:
         raise typer.Exit(code=1)
 
 

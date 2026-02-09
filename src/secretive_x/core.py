@@ -26,6 +26,17 @@ def _manifest_path_within_key_dir(path_value: str, *, key_dir: Path, field_name:
     return resolved
 
 
+def resolve_record_paths(record: KeyRecord, *, key_dir: Path) -> tuple[Path, Path]:
+    """Resolve manifest paths against key_dir and enforce the key-dir trust boundary."""
+    key_path = _manifest_path_within_key_dir(
+        record.private_key_path, key_dir=key_dir, field_name="private_key_path"
+    )
+    pub_path = _manifest_path_within_key_dir(
+        record.public_key_path, key_dir=key_dir, field_name="public_key_path"
+    )
+    return key_path, pub_path
+
+
 def create_key(
     name: str,
     provider: str,
@@ -77,12 +88,7 @@ def delete_key(name: str, config: Config | None = None) -> KeyRecord | None:
     if record is None:
         return None
 
-    key_path = _manifest_path_within_key_dir(
-        record.private_key_path, key_dir=config.key_dir, field_name="private_key_path"
-    )
-    pub_path = _manifest_path_within_key_dir(
-        record.public_key_path, key_dir=config.key_dir, field_name="public_key_path"
-    )
+    key_path, pub_path = resolve_record_paths(record, key_dir=config.key_dir)
 
     try:
         if key_path.exists():
@@ -111,9 +117,7 @@ def get_key(name: str, config: Config | None = None) -> KeyRecord | None:
 
 def read_public_key(record: KeyRecord, config: Config | None = None) -> str:
     config = config or load_config()
-    pub_path = _manifest_path_within_key_dir(
-        record.public_key_path, key_dir=config.key_dir, field_name="public_key_path"
-    )
+    _, pub_path = resolve_record_paths(record, key_dir=config.key_dir)
     try:
         return pub_path.read_text().strip()
     except OSError as exc:
