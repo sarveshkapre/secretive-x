@@ -267,41 +267,20 @@ def doctor(
     manifest_entries_missing_files: list[dict[str, object]] = []
     key_dir_untracked_pairs: list[str] = []
     key_dir_orphan_public_keys: list[str] = []
+    key_dir_orphan_private_keys: list[str] = []
 
     if drift_computed:
-        records = manifest_records or {}
-        for record in records.values():
-            try:
-                key_path, pub_path = resolve_record_paths(record, key_dir=config.key_dir)
-            except ManifestError as exc:
-                invalid_manifest_paths.append({"name": record.name, "error": str(exc)})
-                continue
-
-            missing: list[str] = []
-            if not key_path.exists():
-                missing.append("private")
-            if not pub_path.exists():
-                missing.append("public")
-            if missing:
-                manifest_entries_missing_files.append({"name": record.name, "missing": missing})
-
         try:
-            for pub_path in config.key_dir.glob("*.pub"):
-                name = pub_path.stem
-                priv_path = config.key_dir / name
-                if not priv_path.exists():
-                    key_dir_orphan_public_keys.append(name)
-                    continue
-                if name not in records:
-                    key_dir_untracked_pairs.append(name)
-        except OSError:
+            (
+                invalid_manifest_paths,
+                manifest_entries_missing_files,
+                key_dir_untracked_pairs,
+                key_dir_orphan_public_keys,
+                key_dir_orphan_private_keys,
+            ) = _compute_manifest_drift(key_dir=config.key_dir, records=manifest_records or {})
+        except ManifestError:
             # Best-effort drift scan; prereq checks above already validate key_dir existence/type.
             drift_computed = False
-
-        invalid_manifest_paths.sort(key=lambda item: item["name"])
-        manifest_entries_missing_files.sort(key=lambda item: str(item["name"]))
-        key_dir_untracked_pairs = sorted(set(key_dir_untracked_pairs))
-        key_dir_orphan_public_keys = sorted(set(key_dir_orphan_public_keys))
 
     if json_output:
         payload = {
@@ -331,6 +310,7 @@ def doctor(
                 "manifest_entries_missing_files": manifest_entries_missing_files,
                 "key_dir_untracked_pairs": key_dir_untracked_pairs,
                 "key_dir_orphan_public_keys": key_dir_orphan_public_keys,
+                "key_dir_orphan_private_keys": key_dir_orphan_private_keys,
             },
         }
         if output:
@@ -364,6 +344,7 @@ def doctor(
                 and not manifest_entries_missing_files
                 and not key_dir_untracked_pairs
                 and not key_dir_orphan_public_keys
+                and not key_dir_orphan_private_keys
             ):
                 console.print("drift: OK")
             else:
@@ -373,6 +354,7 @@ def doctor(
                     f" missing_files={len(manifest_entries_missing_files)}"
                     f" untracked_pairs={len(key_dir_untracked_pairs)}"
                     f" orphan_public={len(key_dir_orphan_public_keys)}"
+                    f" orphan_private={len(key_dir_orphan_private_keys)}"
                 )
     if not has_keygen:
         raise typer.Exit(code=1)
