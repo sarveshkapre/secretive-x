@@ -8,9 +8,11 @@
 - GitHub Actions failure runs (`ci` workflow)
 
 ## Candidate Features To Do
-- [ ] P2 Add audit export (`JSON`/`CSV`) for key inventory and lifecycle events.
+- [ ] P0 (Selected) Unify `doctor` drift computation with `scan` and report full drift (`orphan_private` parity) to prevent divergence.
+- [ ] P0 (Selected) Add `--output` parity for JSON-producing commands (`info`, `version`, `create`, `delete`) for automation-friendly artifacts.
+- [ ] P1 (Selected) Add audit export for key inventory snapshots (`export --format json|csv` with `--output` + `--force`).
+- [ ] P1 Add safe cleanup for on-disk orphans (`scan --cleanup-orphans` with `--dry-run` and `--yes`).
 - [ ] P2 Add resident key import workflow for FIDO2 keys (wrap `ssh-keygen -K`, import into key dir + manifest).
-- [ ] P2 Add safe cleanup for on-disk orphans (`scan --cleanup-orphans` with `--dry-run` and `--yes`).
 - [ ] P0 Implement Secure Enclave provider flow on macOS (create/list/delete parity with current providers).
 - [ ] P0 Implement TPM provider flow for Linux/Windows.
 - [ ] P1 Add resident key enumeration/removal commands for FIDO2 hardware keys.
