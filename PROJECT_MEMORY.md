@@ -120,6 +120,7 @@
 - `make check` (pass; 2026-02-10 local run)
 - `make smoke` (pass; 2026-02-10 local run)
 - `gh run view 21860647350 --json conclusion,status,headSha,url` (pass; conclusion: success)
+- `gh run watch 21860735280 --exit-status` (pass; ci workflow on `main`)
 - `gh run watch 21836306296 --exit-status` (pass; ci workflow on `main`)
 - `gh run watch 21836488654 --exit-status` (pass; ci workflow on `main`)
 - `gh run watch 21836608234 --exit-status` (pass; ci workflow on `main`)
