@@ -35,16 +35,26 @@ def main() -> int:
         env["LOCALAPPDATA"] = tmp_cfg
 
         base = [python, "-m", "secretive_x.cli"]
+        out_dir = Path(tmp_cfg) / "out"
+        out_dir.mkdir(parents=True, exist_ok=True)
+
         _run(base + ["--help"], env=env)
         _run(base + ["init", "--json"], env=env)
         _run(base + ["version", "--json"], env=env)
         _run(base + ["info", "--json"], env=env)
         _run(base + ["list", "--json"], env=env)
         _run(base + ["scan", "--json"], env=env)
+        _run(
+            base + ["export", "--format", "json", "--output", str(out_dir / "keys.json")],
+            env=env,
+        )
+        _run(
+            base + ["export", "--format", "csv", "--output", str(out_dir / "keys.csv")],
+            env=env,
+        )
 
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
