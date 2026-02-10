@@ -71,12 +71,21 @@ def _print_json(payload: object) -> None:
     typer.echo(_json_text(payload))
 
 
+def _write_output_file(text: str, *, output: Path, force: bool, json_output: bool) -> None:
+    if output.exists() and not force:
+        _fail(f"Output file exists: {output}", json_output=json_output, code=2)
+    atomic_write_text(output, text)
+
+
+def _require_json_for_output(output: Path, json_output: bool) -> None:
+    if output and not json_output:
+        _fail("Use --json with --output.", json_output=False, code=2)
+
+
 def _write_json_output(
     payload: object, *, output: Path, force: bool, meta: dict[str, object]
 ) -> None:
-    if output.exists() and not force:
-        _fail(f"Output file exists: {output}", json_output=True, code=2)
-    atomic_write_text(output, _json_text(payload) + "\n")
+    _write_output_file(_json_text(payload) + "\n", output=output, force=force, json_output=True)
     meta_payload = dict(meta)
     meta_payload["output_path"] = str(output)
     _print_json(meta_payload)
@@ -85,9 +94,7 @@ def _write_json_output(
 def _write_text_output(
     text: str, *, output: Path, force: bool, meta: dict[str, object]
 ) -> None:
-    if output.exists() and not force:
-        _fail(f"Output file exists: {output}", json_output=True, code=2)
-    atomic_write_text(output, text)
+    _write_output_file(text, output=output, force=force, json_output=True)
     meta_payload = dict(meta)
     meta_payload["output_path"] = str(output)
     _print_json(meta_payload)
@@ -248,8 +255,7 @@ def doctor(
     force: bool = FORCE_OUTPUT_OPTION,
 ) -> None:
     """Check local prerequisites."""
-    if output and not json_output:
-        _fail("Use --json with --output.", json_output=False, code=2)
+    _require_json_for_output(output, json_output)
 
     has_keygen = check_ssh_keygen()
     version = get_ssh_version()
@@ -392,8 +398,7 @@ def scan(
     force: bool = FORCE_OUTPUT_OPTION,
 ) -> None:
     """Scan for drift between the manifest and on-disk key directory and optionally repair it."""
-    if output and not json_output:
-        _fail("Use --json with --output.", json_output=False, code=2)
+    _require_json_for_output(output, json_output)
 
     try:
         config = load_config()
@@ -596,8 +601,7 @@ def create(
     force: bool = FORCE_OUTPUT_OPTION,
 ) -> None:
     """Create a new key using the selected provider."""
-    if output and not json_output:
-        _fail("Use --json with --output.", json_output=False, code=2)
+    _require_json_for_output(output, json_output)
 
     try:
         validate_name(name)
@@ -692,8 +696,7 @@ def list_cmd(
     force: bool = FORCE_OUTPUT_OPTION,
 ) -> None:
     """List known keys."""
-    if output and not json_output:
-        _fail("Use --json with --output.", json_output=False, code=2)
+    _require_json_for_output(output, json_output)
 
     try:
         records = list_keys()
@@ -838,9 +841,7 @@ def pubkey(
     except (ConfigError, ManifestError) as exc:
         _fail(str(exc), json_output=json_output, code=2)
     if output:
-        if output.exists() and not force:
-            _fail(f"Output file exists: {output}", json_output=json_output, code=2)
-        atomic_write_text(output, key + "\n")
+        _write_output_file(key + "\n", output=output, force=force, json_output=json_output)
         if json_output:
             _print_json({"name": record.name, "output_path": str(output)})
         else:
@@ -861,8 +862,7 @@ def delete(
     force: bool = FORCE_OUTPUT_OPTION,
 ) -> None:
     """Delete local key files and remove from manifest."""
-    if output and not json_output:
-        _fail("Use --json with --output.", json_output=False, code=2)
+    _require_json_for_output(output, json_output)
     if json_output and not yes:
         _fail(
             "Use --yes with --json for non-interactive delete.",
@@ -931,9 +931,7 @@ def ssh_config(
         _fail("Key not found.", json_output=json_output, code=2)
     snippet = ssh_config_snippet(record, host)
     if output:
-        if output.exists() and not force:
-            _fail(f"Output file exists: {output}", json_output=json_output, code=2)
-        atomic_write_text(output, snippet)
+        _write_output_file(snippet, output=output, force=force, json_output=json_output)
         if json_output:
             _print_json({"name": record.name, "host": host, "output_path": str(output)})
         else:
@@ -952,8 +950,7 @@ def info(
     force: bool = FORCE_OUTPUT_OPTION,
 ) -> None:
     """Show current config paths."""
-    if output and not json_output:
-        _fail("Use --json with --output.", json_output=False, code=2)
+    _require_json_for_output(output, json_output)
 
     try:
         config = load_config()
@@ -982,8 +979,7 @@ def version(
     force: bool = FORCE_OUTPUT_OPTION,
 ) -> None:
     """Show the CLI version."""
-    if output and not json_output:
-        _fail("Use --json with --output.", json_output=False, code=2)
+    _require_json_for_output(output, json_output)
 
     if json_output:
         payload = {"version": __version__}
