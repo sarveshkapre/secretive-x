@@ -169,6 +169,56 @@ def test_list_json_provider_filter(monkeypatch) -> None:
     assert all(key["provider"] == "fido2" for key in payload["keys"])
 
 
+def test_export_csv_stdout(monkeypatch) -> None:
+    monkeypatch.setattr(
+        cli, "list_keys", lambda: [_record(), _record(name="b", provider="software")]
+    )
+    result = runner.invoke(cli.app, ["export", "--format", "csv"])
+    assert result.exit_code == 0
+    lines = [line for line in result.stdout.splitlines() if line.strip()]
+    assert lines[0].startswith(
+        "name,provider,created_at,resident,application,comment,private_key_path,public_key_path"
+    )
+    assert lines[1].startswith("b,software,2020-01-01T00:00:00+00:00,false,")
+    assert lines[2].startswith("demo,fido2,2020-01-01T00:00:00+00:00,false,")
+
+
+def test_export_csv_output_file(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(cli, "list_keys", lambda: [_record(), _record(resident=True)])
+    target = tmp_path / "keys.csv"
+    result = runner.invoke(cli.app, ["export", "--format", "csv", "--output", str(target)])
+    assert result.exit_code == 0
+    meta = json.loads(result.stdout)
+    assert meta["command"] == "export"
+    assert meta["format"] == "csv"
+    assert meta["keys_count"] == 2
+    assert meta["output_path"].endswith("keys.csv")
+    text = target.read_text()
+    assert text.splitlines()[0].startswith("name,provider,created_at,resident,application")
+
+
+def test_export_json_stdout(monkeypatch) -> None:
+    monkeypatch.setattr(cli, "list_keys", lambda: [_record(), _record(resident=True)])
+    result = runner.invoke(cli.app, ["export", "--format", "json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert len(payload["keys"]) == 2
+
+
+def test_export_json_output_file(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(cli, "list_keys", lambda: [_record(), _record(resident=True)])
+    target = tmp_path / "keys.json"
+    result = runner.invoke(cli.app, ["export", "--format", "json", "--output", str(target)])
+    assert result.exit_code == 0
+    meta = json.loads(result.stdout)
+    assert meta["command"] == "export"
+    assert meta["format"] == "json"
+    assert meta["keys_count"] == 2
+    assert meta["output_path"].endswith("keys.json")
+    payload = json.loads(target.read_text())
+    assert len(payload["keys"]) == 2
+
+
 def test_create_json(monkeypatch) -> None:
     monkeypatch.setattr(cli, "validate_name", lambda n: n)
     monkeypatch.setattr(cli, "check_ssh_keygen", lambda: True)

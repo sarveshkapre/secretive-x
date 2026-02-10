@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import csv
 import getpass
+import io
 import json
 from datetime import UTC, datetime
 from enum import Enum
@@ -75,6 +77,17 @@ def _write_json_output(
     if output.exists() and not force:
         _fail(f"Output file exists: {output}", json_output=True, code=2)
     atomic_write_text(output, _json_text(payload) + "\n")
+    meta_payload = dict(meta)
+    meta_payload["output_path"] = str(output)
+    _print_json(meta_payload)
+
+
+def _write_text_output(
+    text: str, *, output: Path, force: bool, meta: dict[str, object]
+) -> None:
+    if output.exists() and not force:
+        _fail(f"Output file exists: {output}", json_output=True, code=2)
+    atomic_write_text(output, text)
     meta_payload = dict(meta)
     meta_payload["output_path"] = str(output)
     _print_json(meta_payload)
@@ -724,6 +737,85 @@ def list_cmd(
         )
 
     console.print(table)
+
+
+@app.command()
+def export(
+    format: str = typer.Option("csv", "--format", help="Export format: csv or json."),
+    provider: Provider = LIST_PROVIDER_OPTION,
+    output: Path = OUTPUT_OPTION,
+    force: bool = FORCE_OUTPUT_OPTION,
+) -> None:
+    """Export key inventory as CSV or JSON."""
+    fmt = format.strip().lower()
+    if fmt not in {"csv", "json"}:
+        _fail(
+            "Invalid --format. Supported: csv, json.",
+            json_output=bool(output) or fmt == "json",
+            code=2,
+        )
+
+    try:
+        records = list_keys()
+    except (ConfigError, ManifestError) as exc:
+        _fail(str(exc), json_output=fmt == "json" or bool(output), code=2)
+    records = sorted(records, key=lambda r: r.name)
+    if provider is not None:
+        records = [record for record in records if record.provider == provider.value]
+
+    if fmt == "json":
+        payload = {"keys": [_record_to_json(record) for record in records]}
+        if output:
+            _write_json_output(
+                payload,
+                output=output,
+                force=force,
+                meta={"command": "export", "format": "json", "keys_count": len(records)},
+            )
+        else:
+            _print_json(payload)
+        return
+
+    rows: list[dict[str, str]] = []
+    for record in records:
+        rows.append(
+            {
+                "name": record.name,
+                "provider": record.provider,
+                "created_at": record.created_at,
+                "resident": "true" if record.resident else "false",
+                "application": record.application or "",
+                "comment": record.comment,
+                "private_key_path": record.private_key_path,
+                "public_key_path": record.public_key_path,
+            }
+        )
+
+    out = io.StringIO()
+    fieldnames = [
+        "name",
+        "provider",
+        "created_at",
+        "resident",
+        "application",
+        "comment",
+        "private_key_path",
+        "public_key_path",
+    ]
+    writer = csv.DictWriter(out, fieldnames=fieldnames, lineterminator="\n")
+    writer.writeheader()
+    writer.writerows(rows)
+    csv_text = out.getvalue()
+
+    if output:
+        _write_text_output(
+            csv_text,
+            output=output,
+            force=force,
+            meta={"command": "export", "format": "csv", "keys_count": len(records)},
+        )
+    else:
+        typer.echo(csv_text, nl=False)
 
 
 @app.command()
