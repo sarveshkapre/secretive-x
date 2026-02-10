@@ -579,8 +579,13 @@ def create(
     no_passphrase: bool = NO_PASSPHRASE_OPTION,
     rounds: int = ROUNDS_OPTION,
     json_output: bool = JSON_OPTION,
+    output: Path = OUTPUT_OPTION,
+    force: bool = FORCE_OUTPUT_OPTION,
 ) -> None:
     """Create a new key using the selected provider."""
+    if output and not json_output:
+        _fail("Use --json with --output.", json_output=False, code=2)
+
     try:
         validate_name(name)
         config = load_config()
@@ -652,7 +657,16 @@ def create(
         _fail(str(exc), json_output=json_output, code=1)
 
     if json_output:
-        _print_json({"created": _record_to_json(record)})
+        payload = {"created": _record_to_json(record)}
+        if output:
+            _write_json_output(
+                payload,
+                output=output,
+                force=force,
+                meta={"command": "create", "name": record.name},
+            )
+        else:
+            _print_json(payload)
         return
     console.print(f"Created {record.name} ({record.provider})")
 
@@ -747,8 +761,16 @@ def pubkey(
 
 
 @app.command()
-def delete(name: str, yes: bool = YES_OPTION, json_output: bool = JSON_OPTION) -> None:
+def delete(
+    name: str,
+    yes: bool = YES_OPTION,
+    json_output: bool = JSON_OPTION,
+    output: Path = OUTPUT_OPTION,
+    force: bool = FORCE_OUTPUT_OPTION,
+) -> None:
     """Delete local key files and remove from manifest."""
+    if output and not json_output:
+        _fail("Use --json with --output.", json_output=False, code=2)
     if json_output and not yes:
         _fail(
             "Use --yes with --json for non-interactive delete.",
@@ -783,7 +805,16 @@ def delete(name: str, yes: bool = YES_OPTION, json_output: bool = JSON_OPTION) -
         _fail("Key not found.", json_output=json_output, code=2)
 
     if json_output:
-        _print_json({"deleted": _record_to_json(deleted)})
+        payload = {"deleted": _record_to_json(deleted)}
+        if output:
+            _write_json_output(
+                payload,
+                output=output,
+                force=force,
+                meta={"command": "delete", "name": deleted.name},
+            )
+        else:
+            _print_json(payload)
         return
 
     if deleted.provider == "fido2" and deleted.resident:
@@ -823,20 +854,29 @@ def ssh_config(
 
 
 @app.command()
-def info(json_output: bool = JSON_OPTION) -> None:
+def info(
+    json_output: bool = JSON_OPTION,
+    output: Path = OUTPUT_OPTION,
+    force: bool = FORCE_OUTPUT_OPTION,
+) -> None:
     """Show current config paths."""
+    if output and not json_output:
+        _fail("Use --json with --output.", json_output=False, code=2)
+
     try:
         config = load_config()
     except ConfigError as exc:
         _fail(str(exc), json_output=json_output, code=2)
     if json_output:
-        _print_json(
-            {
-                "config_path": str(config.config_path),
-                "key_dir": str(config.key_dir),
-                "manifest_path": str(config.manifest_path),
-            }
-        )
+        payload = {
+            "config_path": str(config.config_path),
+            "key_dir": str(config.key_dir),
+            "manifest_path": str(config.manifest_path),
+        }
+        if output:
+            _write_json_output(payload, output=output, force=force, meta={"command": "info"})
+        else:
+            _print_json(payload)
         return
     console.print(f"Config: {config.config_path}")
     console.print(f"Keys:   {config.key_dir}")
@@ -844,10 +884,21 @@ def info(json_output: bool = JSON_OPTION) -> None:
 
 
 @app.command()
-def version(json_output: bool = JSON_OPTION) -> None:
+def version(
+    json_output: bool = JSON_OPTION,
+    output: Path = OUTPUT_OPTION,
+    force: bool = FORCE_OUTPUT_OPTION,
+) -> None:
     """Show the CLI version."""
+    if output and not json_output:
+        _fail("Use --json with --output.", json_output=False, code=2)
+
     if json_output:
-        _print_json({"version": __version__})
+        payload = {"version": __version__}
+        if output:
+            _write_json_output(payload, output=output, force=force, meta={"command": "version"})
+        else:
+            _print_json(payload)
         return
     console.print(__version__)
 

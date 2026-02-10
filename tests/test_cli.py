@@ -189,6 +189,31 @@ def test_create_json(monkeypatch) -> None:
     assert payload["created"]["name"] == "demo"
 
 
+def test_create_json_output_file(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(cli, "validate_name", lambda n: n)
+    monkeypatch.setattr(cli, "check_ssh_keygen", lambda: True)
+    monkeypatch.setattr(cli, "ssh_supports_key_type", lambda _: True)
+    monkeypatch.setattr(
+        cli,
+        "load_config",
+        lambda: Config(
+            config_path=Path("/tmp/config.json"),
+            key_dir=Path("/tmp/keys"),
+            manifest_path=Path("/tmp/keys.json"),
+        ),
+    )
+    monkeypatch.setattr(cli, "create_key", lambda **kwargs: _record())
+    target = tmp_path / "create.json"
+    result = runner.invoke(cli.app, ["create", "--name", "demo", "--json", "--output", str(target)])
+    assert result.exit_code == 0
+    meta = json.loads(result.stdout)
+    assert meta["command"] == "create"
+    assert meta["name"] == "demo"
+    assert meta["output_path"].endswith("create.json")
+    payload = json.loads(target.read_text())
+    assert payload["created"]["name"] == "demo"
+
+
 def test_create_fails_when_ssh_keygen_missing(monkeypatch) -> None:
     monkeypatch.setattr(cli, "validate_name", lambda n: n)
     monkeypatch.setattr(cli, "check_ssh_keygen", lambda: False)
@@ -398,6 +423,22 @@ def test_delete_json(monkeypatch) -> None:
     assert payload["deleted"]["name"] == "demo"
 
 
+def test_delete_json_output_file(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(cli, "get_key", lambda name: _record())
+    monkeypatch.setattr(cli, "delete_key", lambda name: _record(resident=True))
+    target = tmp_path / "delete.json"
+    result = runner.invoke(
+        cli.app, ["delete", "demo", "--json", "--yes", "--output", str(target)]
+    )
+    assert result.exit_code == 0
+    meta = json.loads(result.stdout)
+    assert meta["command"] == "delete"
+    assert meta["name"] == "demo"
+    assert meta["output_path"].endswith("delete.json")
+    payload = json.loads(target.read_text())
+    assert payload["deleted"]["name"] == "demo"
+
+
 def test_doctor_json(monkeypatch) -> None:
     monkeypatch.setattr(cli, "check_ssh_keygen", lambda: True)
     monkeypatch.setattr(cli, "get_ssh_version", lambda: "OpenSSH_9.9")
@@ -498,10 +539,38 @@ def test_info_json(monkeypatch, tmp_path) -> None:
     assert payload["config_path"].endswith("config.json")
 
 
+def test_info_json_output_file(monkeypatch, tmp_path) -> None:
+    cfg = Config(
+        config_path=tmp_path / "config.json",
+        key_dir=tmp_path / "keys",
+        manifest_path=tmp_path / "keys.json",
+    )
+    monkeypatch.setattr(cli, "load_config", lambda: cfg)
+    target = tmp_path / "info.json"
+    result = runner.invoke(cli.app, ["info", "--json", "--output", str(target)])
+    assert result.exit_code == 0
+    meta = json.loads(result.stdout)
+    assert meta["command"] == "info"
+    assert meta["output_path"].endswith("info.json")
+    payload = json.loads(target.read_text())
+    assert payload["config_path"].endswith("config.json")
+
+
 def test_version_json() -> None:
     result = runner.invoke(cli.app, ["version", "--json"])
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
+    assert "version" in payload
+
+
+def test_version_json_output_file(tmp_path) -> None:
+    target = tmp_path / "version.json"
+    result = runner.invoke(cli.app, ["version", "--json", "--output", str(target)])
+    assert result.exit_code == 0
+    meta = json.loads(result.stdout)
+    assert meta["command"] == "version"
+    assert meta["output_path"].endswith("version.json")
+    payload = json.loads(target.read_text())
     assert "version" in payload
 
 
