@@ -2,6 +2,30 @@
 
 ## Decisions
 
+### 2026-02-10: Unify `doctor` drift computation with `scan`
+- Decision: `doctor` now reuses the shared drift scanner (`_compute_manifest_drift`) and reports orphan private keys for full parity with `scan`.
+- Why: Keeping drift logic duplicated across commands invites divergence and inconsistent user diagnoses; parity improves reliability and makes drift output more trustworthy.
+- Evidence: `src/secretive_x/cli.py`, `tests/test_cli.py`.
+- Commit: `e81b0de`.
+- Confidence: high.
+- Trust label: verified-local-tests.
+
+### 2026-02-10: Add `--output` for additional JSON-producing commands
+- Decision: Added `--output` + `--force` to `info`, `version`, `create`, and `delete` in `--json` mode to produce file artifacts without shell redirects.
+- Why: Automation and scripts benefit from stable, explicit JSON artifacts; extending parity reduces “special-case” handling across commands.
+- Evidence: `src/secretive_x/cli.py`, `tests/test_cli.py`.
+- Commit: `03926d5`.
+- Confidence: high.
+- Trust label: verified-local-tests.
+
+### 2026-02-10: Add audit export command (`export --format csv|json`)
+- Decision: Added `export` to dump key inventory snapshots as CSV or JSON, with provider filtering and safe file output (`--output` + `--force`).
+- Why: Auditing and inventory workflows often need a portable snapshot format (CSV for spreadsheets, JSON for pipelines) without depending on table output parsing.
+- Evidence: `src/secretive_x/cli.py`, `tests/test_cli.py`, `README.md`, `docs/PROJECT.md`.
+- Commit: `4b9aa5c`.
+- Confidence: high.
+- Trust label: verified-local-tests.
+
 ### 2026-02-09: Add `scan` prune modes for drift cleanup
 - Decision: Added destructive `scan` prune flags to remove invalid manifest entries: `--prune-missing` (entries referencing missing key files) and `--prune-invalid-paths` (entries with invalid/untrusted paths).
 - Why: Drift is common and can leave the manifest with entries that will never work (missing files) or are actively unsafe (paths outside the configured key dir); pruning provides an explicit, auditable cleanup path.
@@ -93,7 +117,9 @@
 - Follow-ups: evaluate expanding OS coverage beyond smoke once Windows-compatible equivalents of `make check` targets exist.
 
 ## Verification Evidence
-- `make check` (pass)
+- `make check` (pass; 2026-02-10 local run)
+- `make smoke` (pass; 2026-02-10 local run)
+- `gh run view 21860647350 --json conclusion,status,headSha,url` (pass; conclusion: success)
 - `gh run watch 21836306296 --exit-status` (pass; ci workflow on `main`)
 - `gh run watch 21836488654 --exit-status` (pass; ci workflow on `main`)
 - `gh run watch 21836608234 --exit-status` (pass; ci workflow on `main`)

@@ -8,9 +8,6 @@
 - GitHub Actions failure runs (`ci` workflow)
 
 ## Candidate Features To Do
-- [ ] P0 (Selected) Unify `doctor` drift computation with `scan` and report full drift (`orphan_private` parity) to prevent divergence.
-- [ ] P0 (Selected) Add `--output` parity for JSON-producing commands (`info`, `version`, `create`, `delete`) for automation-friendly artifacts.
-- [ ] P1 (Selected) Add audit export for key inventory snapshots (`export --format json|csv` with `--output` + `--force`).
 - [ ] P1 Add safe cleanup for on-disk orphans (`scan --cleanup-orphans` with `--dry-run` and `--yes`).
 - [ ] P2 Add resident key import workflow for FIDO2 keys (wrap `ssh-keygen -K`, import into key dir + manifest).
 - [ ] P0 Implement Secure Enclave provider flow on macOS (create/list/delete parity with current providers).
@@ -25,6 +22,12 @@
 - POSIX permission hardening: impact medium | effort low | fit high | differentiation low | risk low | confidence medium
 
 ## Implemented
+- [x] 2026-02-10: Unify `doctor` drift computation with `scan` and report full drift (including orphan private keys) to prevent command divergence.  
+  Evidence: `src/secretive_x/cli.py`, `tests/test_cli.py`.
+- [x] 2026-02-10: Add `--output` + `--force` support for more JSON-producing commands (`info`, `version`, `create`, `delete`) for automation-friendly artifacts.  
+  Evidence: `src/secretive_x/cli.py`, `tests/test_cli.py`.
+- [x] 2026-02-10: Add audit export for key inventory snapshots: `export --format csv|json` with `--output` + `--force` and provider filtering.  
+  Evidence: `src/secretive_x/cli.py`, `tests/test_cli.py`, `README.md`, `docs/PROJECT.md`.
 - [x] 2026-02-09: Add destructive `scan` prune modes for drift cleanup: `--prune-missing` (removes manifest entries that reference missing key files) and `--prune-invalid-paths` (removes entries with invalid/untrusted paths).  
   Evidence: `src/secretive_x/cli.py`, `tests/test_cli.py`.
 - [x] 2026-02-09: Add `--output` + `--force` support for JSON-producing commands (`doctor`, `list`, `scan`) to write machine-readable output to files without shell redirects.  
@@ -76,6 +79,7 @@
   - Secretive (macOS) reference UX for Secure Enclave-backed SSH keys: https://github.com/maxgoedjen/secretive
   - Yubico FIDO2 SSH guidance (resident keys, `-O verify-required`, Windows notes): https://developers.yubico.com/SSH/Securing_SSH_with_FIDO2.html
   - Nitrokey FIDO2 SSH guidance (resident vs non-resident keys, `ssh-keygen -K`): https://docs.nitrokey.com/nitrokeys/features/fido2/ssh
+  - 1Password SSH agent docs (consent-based agent UX, host/key matching guidance): https://developer.1password.com/docs/ssh/agent
 
 ## Notes
 - This file is maintained by the autonomous clone loop.

@@ -17,6 +17,7 @@ pip install -r requirements-dev.txt
 ```bash
 PYTHONPATH=src python3 -m secretive_x.cli --help
 PYTHONPATH=src python3 -m secretive_x.cli list --provider fido2 --json
+PYTHONPATH=src python3 -m secretive_x.cli export --format csv --output keys.csv
 ```
 
 ## Test

@@ -56,6 +56,8 @@ Write machine-readable output to a file (no shell redirects needed):
 python3 -m secretive_x.cli doctor --json --output doctor.json
 python3 -m secretive_x.cli list --json --output keys.json
 python3 -m secretive_x.cli scan --json --output drift.json
+python3 -m secretive_x.cli export --format csv --output keys.csv
+python3 -m secretive_x.cli export --format json --output keys.export.json
 ```
 
 Create a FIDO2-backed key:

@@ -1,6 +1,9 @@
 # CHANGELOG
 
 ## Unreleased
+- Add audit export for key inventory snapshots: `export --format csv|json` with `--output` + `--force`.
+- Add `--output` + `--force` support for more JSON-producing commands (`info`, `version`, `create`, `delete`).
+- Unify `doctor` drift computation with `scan` and report full drift (including orphan private keys).
 - Add destructive `scan` prune modes to remove invalid manifest entries: `scan --prune-missing` (entries with missing key files) and `scan --prune-invalid-paths` (untrusted/out-of-dir paths).
 - Add `--output` + `--force` support for JSON-producing commands (`doctor`, `list`, `scan`) to write machine-readable output to files without shell redirects.
 - Add `scan` command to detect drift between manifest and key directory and optionally import untracked on-disk keypairs (`scan --apply`), with `--json` output for automation.
