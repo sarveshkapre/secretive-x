@@ -22,6 +22,8 @@
 - POSIX permission hardening: impact medium | effort low | fit high | differentiation low | risk low | confidence medium
 
 ## Implemented
+- [x] 2026-02-10: Refactor CLI output file handling helpers to reduce duplication (centralized atomic file writes and repeated `--output`/`--json` guards) without changing behavior.  
+  Evidence: `src/secretive_x/cli.py`, `tests/test_cli.py`.
 - [x] 2026-02-10: Unify `doctor` drift computation with `scan` and report full drift (including orphan private keys) to prevent command divergence.  
   Evidence: `src/secretive_x/cli.py`, `tests/test_cli.py`.
 - [x] 2026-02-10: Add `--output` + `--force` support for more JSON-producing commands (`info`, `version`, `create`, `delete`) for automation-friendly artifacts.  

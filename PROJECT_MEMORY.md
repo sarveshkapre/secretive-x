@@ -26,6 +26,14 @@
 - Confidence: high.
 - Trust label: verified-local-tests.
 
+### 2026-02-10: Refactor CLI output file handling helpers
+- Decision: Centralized output-file existence checks and atomic file writes behind `_write_output_file`, and centralized the repeated `--output`/`--json` guard behind `_require_json_for_output`.
+- Why: Reduces copy/paste logic across commands and keeps output semantics consistent without changing user-visible behavior.
+- Evidence: `src/secretive_x/cli.py`, `tests/test_cli.py`.
+- Commit: `a4d1092`.
+- Confidence: high.
+- Trust label: verified-local-tests.
+
 ### 2026-02-09: Add `scan` prune modes for drift cleanup
 - Decision: Added destructive `scan` prune flags to remove invalid manifest entries: `--prune-missing` (entries referencing missing key files) and `--prune-invalid-paths` (entries with invalid/untrusted paths).
 - Why: Drift is common and can leave the manifest with entries that will never work (missing files) or are actively unsafe (paths outside the configured key dir); pruning provides an explicit, auditable cleanup path.
@@ -119,6 +127,7 @@
 ## Verification Evidence
 - `make check` (pass; 2026-02-10 local run)
 - `make smoke` (pass; 2026-02-10 local run)
+- `make check` (pass; 2026-02-10 local run; includes commit `a4d1092`)
 - `gh run view 21860647350 --json conclusion,status,headSha,url` (pass; conclusion: success)
 - `gh run watch 21860735280 --exit-status` (pass; ci workflow on `main`)
 - `gh run watch 21860771455 --exit-status` (pass; ci workflow on `main`)
