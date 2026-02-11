@@ -11,6 +11,7 @@ Status: **MVP (v0.1.0 target)** — FIDO2-backed keys are supported. Secure Encl
 - Config policy guardrails for key creation (`allowed_providers`, `name_pattern`)
 - Tamper-resistant manifest path handling for `pubkey`/`delete`
 - Drift detection and safe reconciliation (`doctor` drift reporting; `scan --apply` to import untracked keypairs)
+- Resident-key import workflow for FIDO2 authenticators (`resident-import`, wraps `ssh-keygen -K`)
 - Safe defaults (key naming validation, no overwrites, secure key directory)
 - Provider-aware workflow and clear error reporting
 - One-command diagnostics (`doctor`)
@@ -48,6 +49,13 @@ python3 -m secretive_x.cli scan
 python3 -m secretive_x.cli scan --apply
 python3 -m secretive_x.cli scan --prune-missing
 python3 -m secretive_x.cli scan --prune-invalid-paths
+```
+
+Import resident FIDO2 keypairs from a connected authenticator into the key directory + manifest:
+
+```bash
+python3 -m secretive_x.cli resident-import
+python3 -m secretive_x.cli resident-import --json --output resident-import.json
 ```
 
 Write machine-readable output to a file (no shell redirects needed):

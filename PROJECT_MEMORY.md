@@ -1,5 +1,12 @@
 # PROJECT_MEMORY
 
+## Recent Decisions
+- 2026-02-11 | decision: Ship `resident-import` command (`ssh-keygen -K` wrapper) with manifest reconciliation and shared keypair-import helper reuse in `scan --apply` | why: resident key retrieval is a high-impact roadmap gap and baseline expectation in FIDO2 SSH workflows | evidence: `src/secretive_x/cli.py`, `src/secretive_x/ssh.py`, `tests/test_cli.py`, `tests/test_ssh.py`, `README.md` | commit: pending | confidence: high | trust label: trusted
+- 2026-02-11 | decision: Prioritize resident-key import ahead of Secure Enclave/TPM provider implementations for cycle 1 | why: lower implementation risk and immediate PMF value for existing FIDO2 users while maintaining production safety | evidence: OpenSSH manpage (`ssh-keygen -K`) and vendor guidance (`Yubico`, `Nitrokey`) plus local roadmap alignment | commit: n/a | confidence: medium-high | trust label: untrusted
+
+## Mistakes And Fixes
+- 2026-02-11 | mistake: none in this cycle | root cause: n/a | prevention rule: keep full `make check` + smoke runs as mandatory pre-push gates.
+
 ## Decisions
 
 ### 2026-02-10: Unify `doctor` drift computation with `scan`
@@ -125,6 +132,11 @@
 - Follow-ups: evaluate expanding OS coverage beyond smoke once Windows-compatible equivalents of `make check` targets exist.
 
 ## Verification Evidence
+- `gh issue list --state open --limit 50 --json number,title,author,labels,updatedAt,url` (pass; no open issues)
+- `gh run list --limit 20 --json databaseId,workflowName,displayTitle,headBranch,headSha,status,conclusion,createdAt,updatedAt,url` (pass; no failing recent completed runs)
+- `make check` (pass; 2026-02-11 local run)
+- `PYTHONPATH=src .venv/bin/python scripts/smoke_cli.py` (pass; 2026-02-11 local run)
+- `PYTHONPATH=src .venv/bin/python -m secretive_x.cli --help` (pass; includes `resident-import` command)
 - `make check` (pass; 2026-02-10 local run)
 - `make smoke` (pass; 2026-02-10 local run)
 - `make check` (pass; 2026-02-10 local run; includes commit `a4d1092`)

@@ -8,20 +8,37 @@
 - GitHub Actions failure runs (`ci` workflow)
 
 ## Candidate Features To Do
-- [ ] P1 Add safe cleanup for on-disk orphans (`scan --cleanup-orphans` with `--dry-run` and `--yes`).
-- [ ] P2 Add resident key import workflow for FIDO2 keys (wrap `ssh-keygen -K`, import into key dir + manifest).
+- [ ] P1 Add `scan --cleanup-orphans` with `--dry-run` and `--yes` to remove orphaned private/public files safely.
 - [ ] P0 Implement Secure Enclave provider flow on macOS (create/list/delete parity with current providers).
-- [ ] P0 Implement TPM provider flow for Linux/Windows.
-- [ ] P1 Add resident key enumeration/removal commands for FIDO2 hardware keys.
-- [ ] P1 Add policy profiles/presets for org rollouts on top of `allowed_providers` + `name_pattern`.
-- [ ] P1 Add SSH agent integration guidance/commands for key caching workflows.
-- [ ] P2 Add a provider plugin interface (or internal abstraction) to keep Secure Enclave/TPM additions isolated.
+- [ ] P0 Implement TPM provider flow for Linux/Windows (provider parity and preflight checks).
+- [ ] P1 Add resident key enumeration and explicit removal commands for FIDO2 authenticators.
+- [ ] P1 Add `doctor --strict` provider preflight mode (OpenSSH/FIDO2/TPM/Secure Enclave capability checks by provider).
+- [ ] P1 Add policy profile presets for org rollouts on top of `allowed_providers` and `name_pattern`.
+- [ ] P1 Add manifest schema `version` validation and migration scaffolding for forward compatibility.
+- [ ] P1 Add backup/restore command for manifest snapshots with integrity checks.
+- [ ] P1 Add optional `create --verify-required` for FIDO2 user-verification enforcement (`ssh-keygen -O verify-required`).
+- [ ] P2 Add provider abstraction/module boundary to isolate future Secure Enclave/TPM implementations.
+- [ ] P2 Add richer `doctor` remediation hints (next-step commands per failed check).
+- [ ] P2 Add `list --sort` and `list --created-after` filters for operational inventory workflows.
+- [ ] P2 Add explicit file-locking around manifest writes to reduce concurrent-write risk.
+- [ ] P2 Add compact TUI status view for local operator workflows.
+- [ ] P2 Add release automation (tag + changelog guard + artifact checksum generation).
+- [ ] P2 Add fuzz-style malformed config/manifest parser tests for robustness hardening.
+- [ ] P2 Add benchmark guardrails for large manifest/list/export operations.
 
 ### Scoring Lens (selected items)
-- `scan` reconciliation: impact high | effort medium | fit high | differentiation medium | risk medium | confidence medium
-- POSIX permission hardening: impact medium | effort low | fit high | differentiation low | risk low | confidence medium
+- Orphan cleanup (`scan --cleanup-orphans`): impact high | effort medium | fit high | differentiation medium | risk medium | confidence medium
+- Secure Enclave provider parity: impact high | effort high | fit high | differentiation high | risk medium-high | confidence medium
+
+### Gap Map (2026-02-11, bounded market scan)
+- Missing: Secure Enclave provider flow; TPM provider flow; resident-key enumeration/removal.
+- Weak: automated cleanup for on-disk orphans; provider-specific strict preflight diagnostics.
+- Parity: FIDO2 key creation, drift scanning/reconciliation, JSON automation output, config policy guardrails.
+- Differentiator opportunities: policy profiles for org rollout, safer manifest lifecycle tools (backup/restore + migrations), stronger diagnostics/remediation UX.
 
 ## Implemented
+- [x] 2026-02-11: Add `resident-import` command to wrap `ssh-keygen -K`, detect newly downloaded keypairs, and import them into the manifest with JSON/human output; also reuse shared keypair-import helpers for `scan --apply`.  
+  Evidence: `src/secretive_x/cli.py`, `src/secretive_x/ssh.py`, `tests/test_cli.py`, `tests/test_ssh.py`, `README.md`, `docs/PROJECT.md`, `scripts/smoke_cli.py`.
 - [x] 2026-02-10: Refactor CLI output file handling helpers to reduce duplication (centralized atomic file writes and repeated `--output`/`--json` guards) without changing behavior.  
   Evidence: `src/secretive_x/cli.py`, `tests/test_cli.py`.
 - [x] 2026-02-10: Unify `doctor` drift computation with `scan` and report full drift (including orphan private keys) to prevent command divergence.  
@@ -79,8 +96,8 @@
   - OpenSSH `ssh-keygen` and resident key docs: https://man.openbsd.org/ssh-keygen
   - OpenSSH release notes / FIDO2 key support context: https://www.openssh.com/releasenotes.html
   - Secretive (macOS) reference UX for Secure Enclave-backed SSH keys: https://github.com/maxgoedjen/secretive
-  - Yubico FIDO2 SSH guidance (resident keys, `-O verify-required`, Windows notes): https://developers.yubico.com/SSH/Securing_SSH_with_FIDO2.html
-  - Nitrokey FIDO2 SSH guidance (resident vs non-resident keys, `ssh-keygen -K`): https://docs.nitrokey.com/nitrokeys/features/fido2/ssh
+  - Yubico FIDO2 SSH guidance (`-O resident`, `-O verify-required`, host-key ordering caveat): https://developers.yubico.com/SSH/Securing_SSH_with_FIDO2.html
+  - Nitrokey FIDO2 SSH guidance (`ssh-keygen -K` resident retrieval and `id_ed25519_sk_rk_*` naming): https://docs.nitrokey.com/nitrokeys/features/fido2/ssh
   - 1Password SSH agent docs (consent-based agent UX, host/key matching guidance): https://developer.1password.com/docs/ssh/agent
 
 ## Notes

@@ -865,3 +865,59 @@ def test_scan_prune_invalid_paths_removes_entries(monkeypatch, tmp_path) -> None
     assert payload["apply"]["prune_invalid_paths"]["pruned"][0]["name"] == "demo"
     records = load_manifest(manifest_path)
     assert records == {}
+
+
+def test_resident_import_json_imports_new_pairs(monkeypatch, tmp_path) -> None:
+    key_dir = tmp_path / "keys"
+    key_dir.mkdir()
+    manifest_path = tmp_path / "keys.json"
+    manifest_path.write_text("{\"version\": 1, \"keys\": {}}")
+    cfg = Config(
+        config_path=tmp_path / "config.json",
+        key_dir=key_dir,
+        manifest_path=manifest_path,
+    )
+    monkeypatch.setattr(cli, "load_config", lambda: cfg)
+
+    def _download(target_dir: Path) -> tuple[str, str]:
+        (target_dir / "rk-demo").write_text("private")
+        (target_dir / "rk-demo.pub").write_text("sk-ssh-ed25519@openssh.com AAAA rk-demo\n")
+        return "ok", ""
+
+    monkeypatch.setattr(cli, "download_resident_keys", _download)
+
+    result = runner.invoke(cli.app, ["resident-import", "--json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["resident_import"]["discovered_count"] == 1
+    assert payload["resident_import"]["imported_count"] == 1
+    imported = payload["resident_import"]["imported"][0]
+    assert imported["name"] == "rk-demo"
+    assert imported["provider"] == "fido2"
+    assert imported["resident"] is True
+
+    from secretive_x.store import load_manifest
+
+    records = load_manifest(manifest_path)
+    assert records["rk-demo"].resident is True
+
+
+def test_resident_import_json_fails_when_ssh_keygen_errors(monkeypatch, tmp_path) -> None:
+    key_dir = tmp_path / "keys"
+    manifest_path = tmp_path / "keys.json"
+    cfg = Config(
+        config_path=tmp_path / "config.json",
+        key_dir=key_dir,
+        manifest_path=manifest_path,
+    )
+    monkeypatch.setattr(cli, "load_config", lambda: cfg)
+    monkeypatch.setattr(
+        cli,
+        "download_resident_keys",
+        lambda target_dir: (_ for _ in ()).throw(cli.SshError("ssh-keygen -K failed")),
+    )
+
+    result = runner.invoke(cli.app, ["resident-import", "--json"])
+    assert result.exit_code == 1
+    payload = json.loads(result.stdout)
+    assert "ssh-keygen -K failed" in payload["error"]

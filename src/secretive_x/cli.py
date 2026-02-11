@@ -25,9 +25,15 @@ from .core import (
     resolve_record_paths,
     ssh_config_snippet,
 )
-from .ssh import SshError, check_ssh_keygen, get_ssh_version, ssh_supports_key_type
+from .ssh import (
+    SshError,
+    check_ssh_keygen,
+    download_resident_keys,
+    get_ssh_version,
+    ssh_supports_key_type,
+)
 from .store import KeyRecord, ManifestError, load_manifest, save_manifest
-from .utils import atomic_write_text, validate_name
+from .utils import atomic_write_text, best_effort_chmod, validate_name
 
 app = typer.Typer(no_args_is_help=True)
 console = Console()
@@ -206,6 +212,66 @@ def _compute_manifest_drift(
         key_dir_orphan_public_keys,
         key_dir_orphan_private_keys,
     )
+
+
+def _discover_key_pairs(key_dir: Path) -> set[str]:
+    pairs: set[str] = set()
+    try:
+        for pub_path in key_dir.glob("*.pub"):
+            if not pub_path.is_file():
+                continue
+            name = pub_path.stem
+            priv_path = key_dir / name
+            if not priv_path.is_file():
+                continue
+            pairs.add(name)
+    except OSError as exc:
+        raise ManifestError("Failed to scan key directory for keypairs") from exc
+    return pairs
+
+
+def _import_key_pairs(
+    *,
+    pair_names: list[str],
+    key_dir: Path,
+    records: dict[str, KeyRecord],
+    resident: bool,
+) -> tuple[list[dict[str, object]], list[dict[str, str]]]:
+    imported: list[dict[str, object]] = []
+    skipped: list[dict[str, str]] = []
+
+    for name in pair_names:
+        if name in records:
+            skipped.append({"name": name, "error": "already present in manifest"})
+            continue
+
+        pub_path = key_dir / f"{name}.pub"
+        priv_path = key_dir / name
+        try:
+            pub_line = pub_path.read_text().strip()
+            key_type, comment = _parse_pubkey_line(pub_line)
+            provider = _infer_provider_from_key_type(key_type)
+            if not comment:
+                comment = f"{name}@secretive-x"
+            created_at = datetime.fromtimestamp(pub_path.stat().st_mtime, tz=UTC).isoformat()
+        except (OSError, ValueError) as exc:
+            skipped.append({"name": name, "error": str(exc)})
+            continue
+
+        record = KeyRecord(
+            name=name,
+            provider=provider,
+            created_at=created_at,
+            public_key_path=str(pub_path),
+            private_key_path=str(priv_path),
+            comment=comment,
+            resident=resident,
+            application=None,
+        )
+        records[name] = record
+        imported.append(_record_to_json(record))
+
+    return imported, skipped
 
 
 @app.command()
@@ -441,30 +507,12 @@ def scan(
     pruned_invalid: list[dict[str, str]] = []
 
     if apply and key_dir_untracked_pairs:
-        for name in key_dir_untracked_pairs:
-            pub_path = config.key_dir / f"{name}.pub"
-            priv_path = config.key_dir / name
-            try:
-                pub_line = pub_path.read_text().strip()
-                key_type, comment = _parse_pubkey_line(pub_line)
-                provider = _infer_provider_from_key_type(key_type)
-                if not comment:
-                    comment = f"{name}@secretive-x"
-                created_at = datetime.fromtimestamp(pub_path.stat().st_mtime, tz=UTC).isoformat()
-                record = KeyRecord(
-                    name=name,
-                    provider=provider,
-                    created_at=created_at,
-                    public_key_path=str(pub_path),
-                    private_key_path=str(priv_path),
-                    comment=comment,
-                    resident=False,
-                    application=None,
-                )
-                records[name] = record
-                imported.append(_record_to_json(record))
-            except (OSError, ValueError) as exc:
-                skipped_imports.append({"name": name, "error": str(exc)})
+        imported, skipped_imports = _import_key_pairs(
+            pair_names=key_dir_untracked_pairs,
+            key_dir=config.key_dir,
+            records=records,
+            resident=False,
+        )
 
     if prune_missing and manifest_entries_missing_files:
         if not yes and not json_output:
@@ -584,6 +632,78 @@ def scan(
             )
 
     raise typer.Exit(code=1 if drift_present else 0)
+
+
+@app.command("resident-import")
+def resident_import(
+    json_output: bool = JSON_OPTION,
+    output: Path = OUTPUT_OPTION,
+    force: bool = FORCE_OUTPUT_OPTION,
+) -> None:
+    """Import resident FIDO2 keypairs from a connected authenticator."""
+    _require_json_for_output(output, json_output)
+
+    try:
+        config = load_config()
+        records = load_manifest(config.manifest_path)
+    except (ConfigError, ManifestError) as exc:
+        _fail(str(exc), json_output=json_output, code=2)
+
+    try:
+        config.key_dir.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        _fail(f"Failed to create key dir: {config.key_dir}", json_output=json_output, code=2)
+    best_effort_chmod(config.key_dir, 0o700)
+
+    try:
+        before_pairs = _discover_key_pairs(config.key_dir)
+        download_resident_keys(config.key_dir)
+        after_pairs = _discover_key_pairs(config.key_dir)
+    except (ManifestError, SshError) as exc:
+        _fail(str(exc), json_output=json_output, code=1)
+
+    new_pairs = sorted(after_pairs - before_pairs)
+    imported, skipped = _import_key_pairs(
+        pair_names=new_pairs,
+        key_dir=config.key_dir,
+        records=records,
+        resident=True,
+    )
+
+    if imported:
+        try:
+            save_manifest(config.manifest_path, records)
+        except ManifestError as exc:
+            _fail(str(exc), json_output=json_output, code=2)
+
+    if json_output:
+        payload = {
+            "key_dir": str(config.key_dir),
+            "manifest_path": str(config.manifest_path),
+            "resident_import": {
+                "discovered_new_pairs": new_pairs,
+                "discovered_count": len(new_pairs),
+                "imported_count": len(imported),
+                "imported": imported,
+                "skipped": skipped,
+            },
+        }
+        if output:
+            _write_json_output(
+                payload,
+                output=output,
+                force=force,
+                meta={"command": "resident-import", "imported_count": len(imported)},
+            )
+        else:
+            _print_json(payload)
+        return
+
+    console.print(f"key dir: {config.key_dir}")
+    console.print(f"manifest: {config.manifest_path}")
+    console.print(f"resident import: discovered={len(new_pairs)} imported={len(imported)}")
+    if skipped:
+        console.print(f"resident import skipped: {len(skipped)}")
 
 
 @app.command()

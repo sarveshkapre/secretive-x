@@ -17,6 +17,7 @@ pip install -r requirements-dev.txt
 ```bash
 PYTHONPATH=src python3 -m secretive_x.cli --help
 PYTHONPATH=src python3 -m secretive_x.cli list --provider fido2 --json
+PYTHONPATH=src python3 -m secretive_x.cli resident-import --json
 PYTHONPATH=src python3 -m secretive_x.cli export --format csv --output keys.csv
 ```
 
@@ -64,4 +65,4 @@ make release
 ## Next 3 improvements
 1. Secure Enclave provider (macOS)
 2. TPM provider (Linux/Windows)
-3. Agent integration for key caching
+3. Resident key enumeration/removal for FIDO2 devices

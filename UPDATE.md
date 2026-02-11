@@ -1,3 +1,17 @@
+# Update (2026-02-11, cycle 1)
+
+## Shipped
+- Resident key workflow: added `resident-import` command to wrap `ssh-keygen -K`, detect newly downloaded keypairs, and import them into the local manifest.
+- Refactor reuse: extracted shared keypair-import helper logic so `scan --apply` and `resident-import` use consistent import behavior.
+- Runtime coverage: expanded cross-platform smoke script to include `resident-import --help`.
+
+## Verification
+```bash
+make check
+PYTHONPATH=src .venv/bin/python scripts/smoke_cli.py
+PYTHONPATH=src .venv/bin/python -m secretive_x.cli --help
+```
+
 # Update (2026-02-09, cycle 4)
 
 ## Shipped

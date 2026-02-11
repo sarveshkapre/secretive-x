@@ -1,6 +1,8 @@
 from pathlib import Path
 
-from secretive_x.ssh import build_ssh_keygen_cmd
+import pytest
+
+from secretive_x.ssh import SshError, build_ssh_keygen_cmd, download_resident_keys
 
 
 def test_build_fido2_cmd() -> None:
@@ -56,3 +58,49 @@ def test_ssh_supports_key_type_true_false(monkeypatch) -> None:
     )
     assert ssh.ssh_supports_key_type("sk-ssh-ed25519@openssh.com") is True
     assert ssh.ssh_supports_key_type("ssh-dss") is False
+
+
+def test_download_resident_keys_uses_key_dir(monkeypatch, tmp_path) -> None:
+    import subprocess
+
+    from secretive_x import ssh
+
+    monkeypatch.setattr(ssh, "check_ssh_keygen", lambda: True)
+    seen: dict[str, object] = {}
+
+    def _run(cmd, **kwargs):
+        seen["cmd"] = cmd
+        seen["cwd"] = kwargs.get("cwd")
+        return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="ok", stderr="")
+
+    monkeypatch.setattr(ssh.subprocess, "run", _run)
+    stdout, stderr = download_resident_keys(tmp_path)
+    assert stdout == "ok"
+    assert stderr == ""
+    assert seen["cmd"] == ["ssh-keygen", "-K"]
+    assert seen["cwd"] == tmp_path
+
+
+def test_download_resident_keys_requires_ssh_keygen(monkeypatch, tmp_path) -> None:
+    from secretive_x import ssh
+
+    monkeypatch.setattr(ssh, "check_ssh_keygen", lambda: False)
+    with pytest.raises(SshError, match="not found"):
+        download_resident_keys(tmp_path)
+
+
+def test_download_resident_keys_surfaces_failure(monkeypatch, tmp_path) -> None:
+    import subprocess
+
+    from secretive_x import ssh
+
+    monkeypatch.setattr(ssh, "check_ssh_keygen", lambda: True)
+    monkeypatch.setattr(
+        ssh.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=args[0], returncode=1, stdout="", stderr="No FIDO authenticator"
+        ),
+    )
+    with pytest.raises(SshError, match="No FIDO authenticator"):
+        download_resident_keys(tmp_path)

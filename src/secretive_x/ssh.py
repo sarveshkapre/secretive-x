@@ -92,3 +92,22 @@ def generate_key(cmd: list[str]) -> None:
         subprocess.run(cmd, check=True)  # nosec
     except subprocess.CalledProcessError as exc:
         raise SshError("ssh-keygen failed") from exc
+
+
+def download_resident_keys(target_dir: Path) -> tuple[str, str]:
+    if not check_ssh_keygen():
+        raise SshError("ssh-keygen was not found on PATH.")
+
+    proc = subprocess.run(  # nosec
+        ["ssh-keygen", "-K"],
+        cwd=target_dir,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout).strip()
+        if detail:
+            raise SshError(f"ssh-keygen -K failed: {detail}")
+        raise SshError("ssh-keygen -K failed")
+    return proc.stdout, proc.stderr

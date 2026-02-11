@@ -44,6 +44,7 @@ def main() -> int:
         _run(base + ["info", "--json"], env=env)
         _run(base + ["list", "--json"], env=env)
         _run(base + ["scan", "--json"], env=env)
+        _run(base + ["resident-import", "--help"], env=env)
         _run(
             base + ["export", "--format", "json", "--output", str(out_dir / "keys.json")],
             env=env,

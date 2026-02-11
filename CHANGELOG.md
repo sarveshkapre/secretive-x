@@ -1,6 +1,7 @@
 # CHANGELOG
 
 ## Unreleased
+- Add `resident-import` command to wrap `ssh-keygen -K` and import newly downloaded resident keypairs into the manifest.
 - Add audit export for key inventory snapshots: `export --format csv|json` with `--output` + `--force`.
 - Add `--output` + `--force` support for more JSON-producing commands (`info`, `version`, `create`, `delete`).
 - Unify `doctor` drift computation with `scan` and report full drift (including orphan private keys).
