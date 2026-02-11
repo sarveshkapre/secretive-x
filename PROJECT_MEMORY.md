@@ -1,7 +1,7 @@
 # PROJECT_MEMORY
 
 ## Recent Decisions
-- 2026-02-11 | decision: Ship `resident-import` command (`ssh-keygen -K` wrapper) with manifest reconciliation and shared keypair-import helper reuse in `scan --apply` | why: resident key retrieval is a high-impact roadmap gap and baseline expectation in FIDO2 SSH workflows | evidence: `src/secretive_x/cli.py`, `src/secretive_x/ssh.py`, `tests/test_cli.py`, `tests/test_ssh.py`, `README.md` | commit: pending | confidence: high | trust label: trusted
+- 2026-02-11 | decision: Ship `resident-import` command (`ssh-keygen -K` wrapper) with manifest reconciliation and shared keypair-import helper reuse in `scan --apply` | why: resident key retrieval is a high-impact roadmap gap and baseline expectation in FIDO2 SSH workflows | evidence: `src/secretive_x/cli.py`, `src/secretive_x/ssh.py`, `tests/test_cli.py`, `tests/test_ssh.py`, `README.md` | commit: `6bb6f71` | confidence: high | trust label: trusted
 - 2026-02-11 | decision: Prioritize resident-key import ahead of Secure Enclave/TPM provider implementations for cycle 1 | why: lower implementation risk and immediate PMF value for existing FIDO2 users while maintaining production safety | evidence: OpenSSH manpage (`ssh-keygen -K`) and vendor guidance (`Yubico`, `Nitrokey`) plus local roadmap alignment | commit: n/a | confidence: medium-high | trust label: untrusted
 
 ## Mistakes And Fixes
@@ -137,6 +137,7 @@
 - `make check` (pass; 2026-02-11 local run)
 - `PYTHONPATH=src .venv/bin/python scripts/smoke_cli.py` (pass; 2026-02-11 local run)
 - `PYTHONPATH=src .venv/bin/python -m secretive_x.cli --help` (pass; includes `resident-import` command)
+- `gh run watch 21897823997 --exit-status` (pass; ci workflow on `main` for commit `6bb6f71`)
 - `make check` (pass; 2026-02-10 local run)
 - `make smoke` (pass; 2026-02-10 local run)
 - `make check` (pass; 2026-02-10 local run; includes commit `a4d1092`)
